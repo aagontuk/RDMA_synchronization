@@ -4,6 +4,7 @@
 #include <cassert>
 #include <iostream>
 #include <memory_resource>
+#include <mutex>
 // -------------------------------------------------------------------------------------
 namespace nam
 {
