@@ -102,6 +102,6 @@ ii  ucx                                           1.9.0-1.51258                 
 sudo apt install libaio-dev libnuma-dev
 mkdir build
 cd build
-cmake
+cmake ..
 make -j$(nproc)
 #+end_src
