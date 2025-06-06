@@ -32,6 +32,7 @@ DEFINE_bool(versioning, false, "");
 DEFINE_bool(CRC, false, "");
 DEFINE_bool(farm, false, "");
 DEFINE_bool(broken, false, "");
+DEFINE_bool(rc, false, "");
 DEFINE_bool(pessimistic, false, "");
 DEFINE_uint64(padding, 8, "");
 DEFINE_uint64(sleep, 0, "sleep in microseconds ");
@@ -62,16 +63,21 @@ void run_test(uint32_t READ_RATIO,
               uintptr_t lock_addr,
               uint64_t* lock_buffer,
               uint64_t* tuple_buffer,
+              uint64_t* rc_buffer,
               uint64_t& updates,
               uint64_t& reads,
               uint64_t& aborts) {
    if (READ_RATIO == 100 || utils::RandomGenerator::getRandU64(0, 100) < READ_RATIO) {
       auto start = utils::getTimePoint();
-      OptimisticLock<Consistency, LockType> tuple(rctx, lock_addr, tuple_buffer, FLAGS_block_size);
+      OptimisticLock<Consistency, LockType> tuple(rctx, lock_addr, tuple_buffer, FLAGS_block_size, rc_buffer);
       for (uint64_t repeatCounter = 0;; repeatCounter++) {
          try {
+            std::cout << "Locking\n";
             tuple.lock();
+            std::cout << "Done locking\n";
+            std::cout << "Unlocking\n";
             tuple.unlock();
+            std::cout << "Done unlocking\n";
             break;
          } catch (const OLRestartException&) {
             threads::Worker::my().counters.incr(profiling::WorkerCounters::abort);
@@ -306,7 +312,9 @@ int main(int argc, char* argv[]) {
                   auto& cm = compute.getCM();
                   auto* rctx = threads::Worker::my().cctxs[0].rctx;
                   auto desc = threads::Worker::my().catalog[0];
+                  std::cout << "Memory region size: " << desc.size_bytes << "\n";
                   std::vector<uint64_t*> tuple_buffers;
+                  std::vector<uint64_t*> rc_buffers;
                   std::vector<uint64_t*> lock_buffers;
                   tuple_buffers.push_back(static_cast<uint64_t*>(cm.getGlobalBuffer().allocate(FLAGS_block_size, 64)));
                   tuple_buffers.push_back(static_cast<uint64_t*>(cm.getGlobalBuffer().allocate(FLAGS_block_size, 64)));
@@ -314,6 +322,8 @@ int main(int argc, char* argv[]) {
                   lock_buffers.push_back(static_cast<uint64_t*>(cm.getGlobalBuffer().allocate(64, 64)));
                   lock_buffers.push_back(static_cast<uint64_t*>(cm.getGlobalBuffer().allocate(64, 64)));
                   // -------------------------------------------------------------------------------------
+                  rc_buffers.push_back(static_cast<uint64_t*>(cm.getGlobalBuffer().allocate(FLAGS_block_size, 64)));
+                  rc_buffers.push_back(static_cast<uint64_t*>(cm.getGlobalBuffer().allocate(FLAGS_block_size, 64)));
                   // -------------------------------------------------------------------------------------
                   uint64_t* barrier_buffer = static_cast<uint64_t*>(cm.getGlobalBuffer().allocate(64, 64));
                   auto addr = desc.start + 64;
@@ -326,7 +336,7 @@ int main(int argc, char* argv[]) {
                   running_threads_counter++;
                   uint64_t b = 0;
                   while (keep_running) {
-                     uint64_t lock_id = zipf_random->rand(0);
+                     uint64_t lock_id = zipf_random->rand(0); // zipf on the lock, popular locks are accessed more often
                      auto lock_addr = addr + (lock_id * FLAGS_block_size) + (lock_id * FLAGS_padding);
                      ensure(lock_id < lock_count);
 
@@ -335,33 +345,37 @@ int main(int argc, char* argv[]) {
                      } else {
                         if (FLAGS_footer) {
                            if (FLAGS_versioning) {
-                              run_test<V2, FooterLock>(READ_RATIO, *rctx, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], updates,
-                                                       reads, aborts);
+                              run_test<V2, FooterLock>(READ_RATIO, *rctx, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],                                                            updates, reads, aborts);
                            } else if (FLAGS_CRC) {
-                              run_test<CRC, FooterLock>(READ_RATIO, *rctx, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], updates,
-                                                        reads, aborts);
+                              run_test<CRC, FooterLock>(READ_RATIO, *rctx, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],
+                                                        updates, reads, aborts);
                            } else if (FLAGS_farm) {
-                              run_test<FaRM, FooterLock>(READ_RATIO, *rctx, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], updates,
-                                                         reads, aborts);
+                              run_test<FaRM, FooterLock>(READ_RATIO, *rctx, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],
+                                                        updates,reads, aborts);
                            } else if (FLAGS_broken) {
-                              run_test<Broken, FooterLock>(READ_RATIO, *rctx, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], updates,
-                                                           reads, aborts);
+                              run_test<Broken, FooterLock>(READ_RATIO, *rctx, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],
+                                                          updates, reads, aborts);
                            } else
                               throw std::runtime_error("wrong option");
                         } else {
                            if (FLAGS_versioning) {
-                              run_test<V2, HeaderLock>(READ_RATIO, *rctx, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], updates,
-                                                       reads, aborts);
+                              run_test<V2, HeaderLock>(READ_RATIO, *rctx, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],
+                                                        updates, reads, aborts);
                            } else if (FLAGS_CRC) {
-                              run_test<CRC, HeaderLock>(READ_RATIO, *rctx, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], updates,
-                                                        reads, aborts);
+                              run_test<CRC, HeaderLock>(READ_RATIO, *rctx, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],
+                                                        updates, reads, aborts);
 
                            } else if (FLAGS_farm) {
-                              run_test<FaRM, HeaderLock>(READ_RATIO, *rctx, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], updates,
-                                                         reads, aborts);
-                           }else if (FLAGS_broken) {
-                              run_test<Broken, FooterLock>(READ_RATIO, *rctx, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], updates,
-                                                           reads, aborts);
+                              run_test<FaRM, HeaderLock>(READ_RATIO, *rctx, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],
+                                                          updates, reads, aborts);
+                           } else if (FLAGS_broken) {
+                              run_test<Broken, FooterLock>(READ_RATIO, *rctx, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],
+                                                            updates, reads, aborts);
+                           } else if (FLAGS_rc) {
+                              printf("Running RC test\n");
+                              run_test<RC, FooterLock>(READ_RATIO, *rctx, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],
+                                                            updates, reads, aborts);
+                              printf("RC test done\n");
                            }
                         }
                      }

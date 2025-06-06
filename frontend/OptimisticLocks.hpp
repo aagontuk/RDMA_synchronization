@@ -86,6 +86,13 @@ struct Broken {
    void checkConsistencyProof([[maybe_unused]] uint64_t* buffer, [[maybe_unused]] uint64_t bytes) {}
 };
 
+struct RC {
+   void generateConsistencyProof([[maybe_unused]] uint64_t* buffer, [[maybe_unused]] uint64_t bytes) {
+      // no op
+   }
+   void checkConsistencyProof([[maybe_unused]] uint64_t* buffer, [[maybe_unused]] uint64_t bytes) {}
+};
+
 struct AbstractLock {
    void lock(nam::rdma::RdmaContext& rctx,
              uintptr_t lockAddr,
@@ -145,12 +152,13 @@ struct OptimisticLock {
    nam::rdma::RdmaContext& rctx;
    uintptr_t remote_address;
    uint64_t* tuple_buffer;
+   uint64_t* rc_buffer;
    size_t bytes;
    uint64_t prev_version =0;
    // -------------------------------------------------------------------------------------
 
-   OptimisticLock(nam::rdma::RdmaContext& rctx, uintptr_t remote_address, uint64_t* tuple_buffer, size_t bytes)
-      : rctx(rctx), remote_address(remote_address), tuple_buffer(tuple_buffer), bytes(bytes){};
+   OptimisticLock(nam::rdma::RdmaContext& rctx, uintptr_t remote_address, uint64_t* tuple_buffer, size_t bytes, uint64_t* rc_buffer = nullptr) 
+      : rctx(rctx), remote_address(remote_address), tuple_buffer(tuple_buffer), rc_buffer(rc_buffer), bytes(bytes){};
    // -------------------------------------------------------------------------------------
    void checkLock() {
       uint64_t* lck = nullptr;
@@ -232,8 +240,13 @@ struct OptimisticLock {
          }
          prev_version = tuple_buffer[0];
          // -------------------------------------------------------------------------------------
-         checkLock();
+         checkLock(); // check if the lock is not locked by the writer
          // -------------------------------------------------------------------------------------
+      } else if constexpr (std::is_same_v<RC, Consistency>) {
+         // aynchronously submit 2 reads, then check if the version match and not locked by writer
+         // this is first read
+         // second read is done in unlock
+         rdma::postRead(&tuple_buffer[0], rctx, rdma::completion::signaled, remote_address, bytes, 0);
       } else {
          rdma::postRead(tuple_buffer, rctx, rdma::completion::signaled, remote_address, bytes, 0);
          int comp{0};
@@ -276,22 +289,42 @@ struct OptimisticLock {
             v_version = &tuple_buffer[index];
             rdma::postRead(&tuple_buffer[index], rctx, rdma::completion::signaled, remote_address + byte_offset, 16, 0);
          }
-      }else{
+      } else if constexpr (std::is_same_v<RC, Consistency>) {
+         rdma::postRead(rc_buffer, rctx, rdma::completion::signaled, remote_address, 8, 0);
+      } else{
          rdma::postRead(tuple_buffer, rctx, rdma::completion::signaled, remote_address, 8, 0);
       }
+      
+      if constexpr (std::is_same_v<RC, Consistency>) {
+        int comp{0};
+        ibv_wc wcReturn;
+        while (comp == 0) {
+          _mm_pause();
+          comp = rdma::pollCompletion(rctx.id->qp->send_cq, 2, &wcReturn);
+        }
 
-      int comp{0};
-      ibv_wc wcReturn;
-      while (comp == 0) {
-         _mm_pause();
-         comp = rdma::pollCompletion(rctx.id->qp->send_cq, 1, &wcReturn);
+        // v_version = &rc_buffer[0];
+        // prev_version = tuple_buffer[0];
+        // 
+        // if (prev_version != *v_version){
+        //   throw OLRestartException();
+        //}
+      } else {
+        int comp{0};
+        ibv_wc wcReturn;
+        while (comp == 0) {
+          _mm_pause();
+          comp = rdma::pollCompletion(rctx.id->qp->send_cq, 1, &wcReturn);
+        }
+        // -------------------------------------------------------------------------------------
+        if (prev_version != *v_version){
+          throw OLRestartException();
+        }
       }
-      // -------------------------------------------------------------------------------------
-      if (prev_version != *v_version){
-         throw OLRestartException();
-      }
+      std::cout << "Checking lock\n";
       // -------------------------------------------------------------------------------------
       checkLock();
+      std::cout << "Done checking lock\n";
       // -------------------------------------------------------------------------------------
       return {prev_version, *v_version};
    }
