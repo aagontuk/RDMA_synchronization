@@ -22,6 +22,8 @@ Remote data structures built with one-sided Remote Direct Memory Access (RDMA) a
 The benchmarks and lock implementations can be found in `frontend`. 
 The experiment scripts can be found in `distexperiments/experiments`
 
+**IP of the storage nodes are hardcoded in `shared-headers/Defs.hpp`. Change the IP addresses to match your setup.**
+
 ** Setup
 
 *** Cluster Setup
@@ -104,4 +106,16 @@ mkdir build
 cd build
 cmake ..
 make -j$(nproc)
+#+end_src
+
+** Running the benchmarks
+
+Starting the storage node:
+#+begin_src shell
+./build/frontend/optmistic_benchmark -ownIp=10.10.1.1 -storage_node -dramGB=10
+#+end_src
+
+Starting the client nodes:
+#+begin_src shell
+./build/frontend/optmistic_benchmark -ownIp=10.10.1.2 -run_for_seconds=5 -nopinThreads -csvFile="optimistic_benchmark_scaleout.csv" -readratios 50 -footer -broken
 #+end_src
