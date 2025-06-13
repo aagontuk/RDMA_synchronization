@@ -72,12 +72,8 @@ void run_test(uint32_t READ_RATIO,
       OptimisticLock<Consistency, LockType> tuple(rctx, lock_addr, tuple_buffer, FLAGS_block_size, rc_buffer);
       for (uint64_t repeatCounter = 0;; repeatCounter++) {
          try {
-            std::cout << "Locking\n";
             tuple.lock();
-            std::cout << "Done locking\n";
-            std::cout << "Unlocking\n";
             tuple.unlock();
-            std::cout << "Done unlocking\n";
             break;
          } catch (const OLRestartException&) {
             threads::Worker::my().counters.incr(profiling::WorkerCounters::abort);
@@ -264,6 +260,8 @@ int main(int argc, char* argv[]) {
          benchmark += "-FaRM";
       } else if (FLAGS_broken) {
          benchmark += "-broken";
+      } else if (FLAGS_rc) {
+         benchmark += "-rc";
       }
       if (FLAGS_footer) { benchmark += "-footer"; }
       if (FLAGS_pessimistic) { benchmark = "pessimistic"; }
@@ -372,10 +370,8 @@ int main(int argc, char* argv[]) {
                               run_test<Broken, FooterLock>(READ_RATIO, *rctx, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],
                                                             updates, reads, aborts);
                            } else if (FLAGS_rc) {
-                              printf("Running RC test\n");
                               run_test<RC, FooterLock>(READ_RATIO, *rctx, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],
                                                             updates, reads, aborts);
-                              printf("RC test done\n");
                            }
                         }
                      }
