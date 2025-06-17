@@ -16,6 +16,8 @@ Read Path: READ_FENCED() -> Poll() -> READ() -> Poll() -> READ() -> Poll()
 
 Write Path: CAS() -> READ() -> Poll() -> Increment version -> Write() write verison -> FAA() unlock lock bit
 
+**The fence means that the processing of this WR will be blocked until all prior posted RDMA Read and Atomic WRs will be completed**
+
 ### RC ###
 
 Read Path: READ() -> READ() -> Poll(2)
