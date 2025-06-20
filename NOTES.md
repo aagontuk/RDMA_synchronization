@@ -1,6 +1,6 @@
 ### Pessimistic ###
 
-Read Path: FAA() -> READ() -> Poll() -> FAA()
+Read Path: FAA(unsignaled) [inc reader] -> READ() -> Poll() -> check if writer locked -> FAA(unsignaled) [dec reader]
 
 Write Path: CAS() -> READ() -> Poll() -> Local Update -> WRITE() -> FAA()
 
@@ -9,6 +9,8 @@ Write Path: CAS() -> READ() -> Poll() -> Local Update -> WRITE() -> FAA()
 Read Path: READ() -> Poll() -> READ() -> Poll()
 
 Write Path: CAS() -> READ() -> Poll() -> Increment version -> Write() write verison -> FAA() unlock lock bit
+
+**If RDMA R->R ordering is enforced in a single QP why Poll() is needed between these two reads?**
 
 ### Broken Fixed ###
 
@@ -20,7 +22,7 @@ Write Path: CAS() -> READ() -> Poll() -> Increment version -> Write() write veri
 
 ### RC ###
 
-Read Path: READ() -> READ() -> Poll(2)
+Read Path: READ() -> READ() -> Poll(1)
 
 Write Path: CAS() -> READ() -> Poll() -> Increment version -> Write() write verison -> FAA() unlock lock bit
 
