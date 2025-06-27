@@ -10,8 +10,6 @@ Read Path: READ() -> Poll() -> READ() -> Poll()
 
 Write Path: CAS() -> READ() -> Poll() -> Increment version -> Write() write verison -> FAA() unlock lock bit
 
-**If RDMA R->R ordering is enforced in a single QP why Poll() is needed between these two reads?**
-
 ### Broken Fixed ###
 
 Read Path: READ_FENCED() -> Poll() -> READ() -> Poll() -> READ() -> Poll()
@@ -20,9 +18,13 @@ Write Path: CAS() -> READ() -> Poll() -> Increment version -> Write() write veri
 
 **The fence means that the processing of this WR will be blocked until all prior posted RDMA Read and Atomic WRs will be completed**
 
+### Broken Fixed Optimized ###
+
+Read Path: READ_FENCED() -> READ_FENCED() -> READ() -> Poll()
+
 ### RC ###
 
-Read Path: READ() -> READ() -> Poll(1)
+Read Path: READ(unsignaled) -> READ() -> Poll(1)
 
 Write Path: CAS() -> READ() -> Poll() -> Increment version -> Write() write verison -> FAA() unlock lock bit
 
