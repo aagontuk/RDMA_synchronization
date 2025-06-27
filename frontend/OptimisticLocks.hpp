@@ -246,7 +246,7 @@ struct OptimisticLock {
          // aynchronously submit 2 reads, then check if the version match and not locked by writer
          // this is first read
          // second read is done in unlock
-         rdma::postRead(&tuple_buffer[0], rctx, rdma::completion::signaled, remote_address, bytes, 0);
+         rdma::postRead(&tuple_buffer[0], rctx, rdma::completion::unsignaled, remote_address, bytes, 0);
       } else {
          rdma::postRead(tuple_buffer, rctx, rdma::completion::signaled, remote_address, bytes, 0);
          int comp{0};
@@ -297,12 +297,28 @@ struct OptimisticLock {
       
       if constexpr (std::is_same_v<RC, Consistency>) {
         int comp{0};
+
+        /*
         int tot_comp{0};
+        int tot_expected{1};
         ibv_wc wcReturn[2];
-        while (tot_comp != 2) {
+        while (tot_comp != tot_expected) {
           _mm_pause();
-          comp = rdma::pollCompletion(rctx.id->qp->send_cq, 2, wcReturn);
+          auto expected = tot_expected - tot_comp;
+          comp = rdma::pollCompletion(rctx.id->qp->send_cq, expected, wcReturn);
+         for (int i = 0; i < comp; i++) {
+            if (wcReturn[i].status != IBV_WC_SUCCESS) {
+               throw;
+            }
+         }
           tot_comp += comp;
+        }
+        */
+        
+        ibv_wc wcReturn;
+        while (comp == 0) {
+          _mm_pause();
+          comp = rdma::pollCompletion(rctx.id->qp->send_cq, 1, &wcReturn);
         }
 
         v_version = &rc_buffer[0];
