@@ -297,18 +297,20 @@ struct OptimisticLock {
       
       if constexpr (std::is_same_v<RC, Consistency>) {
         int comp{0};
+        int tot_comp{0};
         ibv_wc wcReturn[2];
-        while (comp == 0) {
+        while (tot_comp != 2) {
           _mm_pause();
           comp = rdma::pollCompletion(rctx.id->qp->send_cq, 2, wcReturn);
+          tot_comp += comp;
         }
 
-        // v_version = &rc_buffer[0];
-        // prev_version = tuple_buffer[0];
-        // 
-        // if (prev_version != *v_version){
-        //   throw OLRestartException();
-        //}
+        v_version = &rc_buffer[0];
+        prev_version = tuple_buffer[0];
+
+        if (prev_version != *v_version){
+          throw OLRestartException();
+        }
       } else {
         int comp{0};
         ibv_wc wcReturn;
