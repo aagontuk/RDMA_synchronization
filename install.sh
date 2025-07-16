@@ -6,8 +6,17 @@
 
 N_HUGE_PAGE=10240
 
+n_huge=$(cat /proc/meminfo | grep -i HugePages_Total | awk '{print $2}')
+s_huge=$(cat /proc/meminfo | grep -i Hugepagesize | awk '{print $2,$3}')
+
 # Setup hugepages
-# echo "${N_HUGE_PAGE}" | sudo tee /proc/sys/vm/nr_hugepages
+if [ ! $n_huge -eq $N_HUGE_PAGE ]; then
+  echo "ERROR: No hugepages found"
+  echo "Setting up hugepages"
+  echo "${N_HUGE_PAGE}" | sudo tee /proc/sys/vm/nr_hugepages
+else
+  echo "Found ${n_huge} pages of size ${s_huge}"
+fi
 
 # Install necessary packages
 sudo apt update
