@@ -236,7 +236,10 @@ int main(int argc, char* argv[]) {
       std::cout << "Storage Node" << std::endl;
       nam::Storage db;
       db.registerMemoryRegion("block", FLAGS_dramGB * 1024 * 1024 * 1024);
-      db.startAndConnect();
+      if (!FLAGS_rc)
+        db.startAndConnect();
+      else
+        db.startAndConnect(FLAGS_worker * 2);
       // -------------------------------------------------------------------------------------
       while (db.getCM().getNumberIncomingConnections()) {}
       // auto desc = db.getMemoryRegion("block");
@@ -322,6 +325,13 @@ int main(int argc, char* argv[]) {
                   // -------------------------------------------------------------------------------------
                   rc_buffers.push_back(static_cast<uint64_t*>(cm.getGlobalBuffer().allocate(FLAGS_block_size, 64)));
                   rc_buffers.push_back(static_cast<uint64_t*>(cm.getGlobalBuffer().allocate(FLAGS_block_size, 64)));
+                  // -------------------------------------------------------------------------------------
+                  // Create separate connection for RC benchmark
+                  // Assuming only one storge node
+                  auto& ip = STORAGE_NODES[FLAGS_storage_nodes][0];
+                  // cctxs[n_i].rctx = &(cm.initiateConnection(ip, rdma::Type::WORKER, workerId, nodeId));
+                  // rdma::RdmaContext rctx2 
+
                   // -------------------------------------------------------------------------------------
                   uint64_t* barrier_buffer = static_cast<uint64_t*>(cm.getGlobalBuffer().allocate(64, 64));
                   auto addr = desc.start + 64;

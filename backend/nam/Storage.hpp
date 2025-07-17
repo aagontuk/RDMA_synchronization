@@ -95,6 +95,42 @@ class Storage
       });
       connectionThread.join();
    };
+   
+   void startAndConnect(size_t nConn) {
+      std::thread connectionThread([&]() {
+         using namespace rdma;
+         rdma::InitMessage* initServer = (rdma::InitMessage*)cm->getGlobalBuffer().allocate(sizeof(rdma::InitMessage));
+         // -------------------------------------------------------------------------------------
+         size_t numConnections = nConn;
+         std::cout << "Waiting for connections " << numConnections << "\n";
+         while (cm->getNumberIncomingConnections() != (numConnections))
+            ;  // block until client is connected
+
+         std::vector<RdmaContext*> rdmaCtxs(cm->getIncomingConnections());  // get cm ids of incomming
+
+         for (auto* rContext : rdmaCtxs) {
+            // -------------------------------------------------------------------------------------
+            if (rContext->type != Type::WORKER) { throw; }
+            // -------------------------------------------------------------------------------------
+            initServer->nodeId = nodeId; 
+            initServer->threadId = 1000;
+            initServer->num_regions = catalog.size();
+            ensure(initServer->num_regions < MAX_REGIONS);
+            for (auto& it : catalog) {
+               // Do stuff
+               initServer->mem_regions[it.second.region_id].offset = (uintptr_t)it.second.start;
+               initServer->mem_regions[it.second.region_id].size_bytes = (uintptr_t)it.second.size_bytes;
+            }
+
+            // -------------------------------------------------------------------------------------
+            cm->exchangeInitialMesssage(*(rContext), initServer);
+            
+         }
+         std::cout << "Finished connection " << "\n";
+
+      });
+      connectionThread.join();
+   };
 
    void startAndConnect(std::function<void()> startup) {
       std::thread connectionThread([&]() {
