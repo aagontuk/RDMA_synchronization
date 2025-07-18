@@ -112,7 +112,7 @@ make -j$(nproc)
 
 Starting the storage node:
 #+begin_src shell
-/build/frontend/optmistic_benchmark -ownIp=10.10.1.1 -storage_node -dramGB=10 -all_worker 16 -worker 16
+./build/frontend/optmistic_benchmark -ownIp=10.10.1.1 -storage_node -dramGB=10 -all_worker 16 -worker 16
 #+end_src
 
 Starting the client nodes:
