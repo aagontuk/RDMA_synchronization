@@ -39,7 +39,8 @@ template <typename Consistency, typename LockType>
 void run_check(uint32_t READ_RATIO, nam::rdma::RdmaContext& rctx, uintptr_t lock_addr, uint64_t* lock_buffer, uint64_t* tuple_buffer) {
    if (READ_RATIO == 100 || utils::RandomGenerator::getRandU64(0, 100) < READ_RATIO) {
       auto start = utils::getTimePoint();
-      OptimisticLock<Consistency, LockType> tuple(rctx, lock_addr, tuple_buffer, TUPLE_SIZE);
+      nam::rdma::RdmaContext rctx2; // this is a mess, ignore
+      OptimisticLock<Consistency, LockType> tuple(rctx, rctx2, lock_addr, tuple_buffer, TUPLE_SIZE);
       for (uint64_t repeatCounter = 0;; repeatCounter++) {
          try {
             tuple.lock();

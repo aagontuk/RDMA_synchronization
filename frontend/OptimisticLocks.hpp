@@ -150,6 +150,7 @@ struct OptimisticLock {
    LockType l;
    // -------------------------------------------------------------------------------------
    nam::rdma::RdmaContext& rctx;
+   nam::rdma::RdmaContext& rctx2;
    uintptr_t remote_address;
    uint64_t* tuple_buffer;
    uint64_t* rc_buffer;
@@ -157,8 +158,8 @@ struct OptimisticLock {
    uint64_t prev_version =0;
    // -------------------------------------------------------------------------------------
 
-   OptimisticLock(nam::rdma::RdmaContext& rctx, uintptr_t remote_address, uint64_t* tuple_buffer, size_t bytes, uint64_t* rc_buffer = nullptr) 
-      : rctx(rctx), remote_address(remote_address), tuple_buffer(tuple_buffer), rc_buffer(rc_buffer), bytes(bytes){};
+   OptimisticLock(nam::rdma::RdmaContext& rctx, nam::rdma::RdmaContext& rctx2, uintptr_t remote_address, uint64_t* tuple_buffer, size_t bytes, uint64_t* rc_buffer = nullptr) 
+      : rctx(rctx), rctx2(rctx2), remote_address(remote_address), tuple_buffer(tuple_buffer), rc_buffer(rc_buffer), bytes(bytes){};
    // -------------------------------------------------------------------------------------
    void checkLock() {
       uint64_t* lck = nullptr;
@@ -290,7 +291,7 @@ struct OptimisticLock {
             rdma::postRead(&tuple_buffer[index], rctx, rdma::completion::signaled, remote_address + byte_offset, 16, 0);
          }
       } else if constexpr (std::is_same_v<RC, Consistency>) {
-         rdma::postRead(rc_buffer, rctx, rdma::completion::signaled, remote_address, 8, 0);
+         rdma::postRead(rc_buffer, rctx2, rdma::completion::signaled, remote_address, 8, 0);
       } else{
          rdma::postRead(tuple_buffer, rctx, rdma::completion::signaled, remote_address, 8, 0);
       }
@@ -318,7 +319,7 @@ struct OptimisticLock {
         ibv_wc wcReturn;
         while (comp == 0) {
           _mm_pause();
-          comp = rdma::pollCompletion(rctx.id->qp->send_cq, 1, &wcReturn);
+          comp = rdma::pollCompletion(rctx2.id->qp->send_cq, 1, &wcReturn);
         }
 
         v_version = &rc_buffer[0];

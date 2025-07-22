@@ -60,6 +60,7 @@ static std::vector<unsigned> interpretGflagString(std::string_view desc) {
 template <typename Consistency, typename LockType>
 void run_test(uint32_t READ_RATIO,
               nam::rdma::RdmaContext& rctx,
+              nam::rdma::RdmaContext& rctx2,
               uintptr_t lock_addr,
               uint64_t* lock_buffer,
               uint64_t* tuple_buffer,
@@ -69,7 +70,7 @@ void run_test(uint32_t READ_RATIO,
               uint64_t& aborts) {
    if (READ_RATIO == 100 || utils::RandomGenerator::getRandU64(0, 100) < READ_RATIO) {
       auto start = utils::getTimePoint();
-      OptimisticLock<Consistency, LockType> tuple(rctx, lock_addr, tuple_buffer, FLAGS_block_size, rc_buffer);
+      OptimisticLock<Consistency, LockType> tuple(rctx, rctx2, lock_addr, tuple_buffer, FLAGS_block_size, rc_buffer);
       for (uint64_t repeatCounter = 0;; repeatCounter++) {
          try {
             tuple.lock();
@@ -334,12 +335,13 @@ int main(int argc, char* argv[]) {
                   // -------------------------------------------------------------------------------------
                   // Create separate connection for RC benchmark
                   // Assuming only one storge node
+                  nam::rdma::RdmaContext rctx2;
                   if (FLAGS_rc) {
                     std::cout << "Setting up separate connection for RC\n";
                     auto& ip = STORAGE_NODES[FLAGS_storage_nodes][0];
                     auto workerId = threads::Worker::my().workerId;
                     auto nodeId = threads::Worker::my().nodeId_;
-                    auto& rctx2 = cm.initiateConnection(ip, rdma::Type::WORKER, workerId, nodeId);
+                    rctx2 = cm.initiateConnection(ip, rdma::Type::WORKER, workerId, nodeId);
                     auto* init =
                         static_cast<rdma::InitMessage*>(cm.getGlobalBuffer().allocate(sizeof(rdma::InitMessage)));
                     init->nodeId = nodeId;
@@ -369,34 +371,34 @@ int main(int argc, char* argv[]) {
                      } else {
                         if (FLAGS_footer) {
                            if (FLAGS_versioning) {
-                              run_test<V2, FooterLock>(READ_RATIO, *rctx, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],                                                            updates, reads, aborts);
+                              run_test<V2, FooterLock>(READ_RATIO, *rctx, rctx2, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],                                                            updates, reads, aborts);
                            } else if (FLAGS_CRC) {
-                              run_test<CRC, FooterLock>(READ_RATIO, *rctx, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],
+                              run_test<CRC, FooterLock>(READ_RATIO, *rctx, rctx2, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],
                                                         updates, reads, aborts);
                            } else if (FLAGS_farm) {
-                              run_test<FaRM, FooterLock>(READ_RATIO, *rctx, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],
+                              run_test<FaRM, FooterLock>(READ_RATIO, *rctx, rctx2, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],
                                                         updates,reads, aborts);
                            } else if (FLAGS_broken) {
-                              run_test<Broken, FooterLock>(READ_RATIO, *rctx, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],
+                              run_test<Broken, FooterLock>(READ_RATIO, *rctx, rctx2, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],
                                                           updates, reads, aborts);
                            } else
                               throw std::runtime_error("wrong option");
                         } else {
                            if (FLAGS_versioning) {
-                              run_test<V2, HeaderLock>(READ_RATIO, *rctx, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],
+                              run_test<V2, HeaderLock>(READ_RATIO, *rctx, rctx2, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],
                                                         updates, reads, aborts);
                            } else if (FLAGS_CRC) {
-                              run_test<CRC, HeaderLock>(READ_RATIO, *rctx, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],
+                              run_test<CRC, HeaderLock>(READ_RATIO, *rctx, rctx2, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],
                                                         updates, reads, aborts);
 
                            } else if (FLAGS_farm) {
-                              run_test<FaRM, HeaderLock>(READ_RATIO, *rctx, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],
+                              run_test<FaRM, HeaderLock>(READ_RATIO, *rctx, rctx2, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],
                                                           updates, reads, aborts);
                            } else if (FLAGS_broken) {
-                              run_test<Broken, FooterLock>(READ_RATIO, *rctx, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],
+                              run_test<Broken, FooterLock>(READ_RATIO, *rctx, rctx2, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],
                                                             updates, reads, aborts);
                            } else if (FLAGS_rc) {
-                              run_test<RC, FooterLock>(READ_RATIO, *rctx, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],
+                              run_test<RC, FooterLock>(READ_RATIO, *rctx, rctx2, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],
                                                             updates, reads, aborts);
                            }
                         }

@@ -90,7 +90,8 @@ int main(int argc, char* argv[]) {
                   auto lock_addr = addr + (next_idx * TUPLE_SIZE) + (next_idx * FLAGS_padding);
                   auto start = utils::getTimePoint();
                   // read lock
-                  OptimisticLock<FaRM, FooterLock> tuple(*rctx, lock_addr, tuple_buffer, TUPLE_SIZE);
+                  nam::rdma::RdmaContext rctx2; // this is a mess, ignore
+                  OptimisticLock<FaRM, FooterLock> tuple(*rctx, rctx2, lock_addr, tuple_buffer, TUPLE_SIZE);
                   for (uint64_t repeatCounter = 0;; repeatCounter++) {
                      try {
                         tuple.lock();
