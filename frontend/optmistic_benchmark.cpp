@@ -236,14 +236,16 @@ int main(int argc, char* argv[]) {
       std::cout << "Storage Node" << std::endl;
       nam::Storage db;
       db.registerMemoryRegion("block", FLAGS_dramGB * 1024 * 1024 * 1024);
-      // Start connection threads
-      if (!FLAGS_rc) {
-        db.startAndConnect();
-      }
-      else {
+        
+      // Wait for the first connection from each worker
+      db.startAndConnect();
+      
+      // Wait for the second connection from each worker for RC benchmark
+      if (FLAGS_rc) {
         std::cout << "Running RC specific setup\n";
         db.startAndConnect(FLAGS_worker * 2);
       }
+
       // -------------------------------------------------------------------------------------
       while (db.getCM().getNumberIncomingConnections()) {}
       // auto desc = db.getMemoryRegion("block");

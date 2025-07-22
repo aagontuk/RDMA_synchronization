@@ -672,6 +672,8 @@ class CM
          for (int i = 0; i < comp; i++) {
             /* verify the completion status */
             if (wcs[i].status != IBV_WC_SUCCESS) {
+               DEBUG_LOG("exchangeInitialMesssage: Completion failed");
+               DEBUG_LOG(ibv_wc_status_str(wcs[i].status));
                throw;
             }
             ensure(wcs[i].qp_num == context.id->qp->qp_num);
