@@ -74,8 +74,10 @@ class Storage
 
          std::vector<RdmaContext*> rdmaCtxs(cm->getIncomingConnections());  // get cm ids of incomming
 
-         for (auto* rContext : rdmaCtxs) {
+         // for (auto* rContext : rdmaCtxs) {
+         for (size_t i = servedConnections; i < rdmaCtxs.size(); i++) {
             // -------------------------------------------------------------------------------------
+            auto* rContext = rdmaCtxs[i];
             if (rContext->type != Type::WORKER) { throw; }
             // -------------------------------------------------------------------------------------
             initServer->nodeId = nodeId; 
@@ -92,6 +94,7 @@ class Storage
             cm->exchangeInitialMesssage(*(rContext), initServer);
             
          }
+         servedConnections = rdmaCtxs.size();
          std::cout << "Finished connection " << "\n";
 
       });
@@ -104,16 +107,14 @@ class Storage
          rdma::InitMessage* initServer = (rdma::InitMessage*)cm->getGlobalBuffer().allocate(sizeof(rdma::InitMessage));
          // -------------------------------------------------------------------------------------
          size_t numConnections = nConn;
-         std::cout << "Waiting for connections " << numConnections << "\n";
          while (cm->getNumberIncomingConnections() != (numConnections))
             ;  // block until client is connected
 
-         std::cout << "All connections done\n";
-
          std::vector<RdmaContext*> rdmaCtxs(cm->getIncomingConnections());  // get cm ids of incomming
 
-         for (auto* rContext : rdmaCtxs) {
+         for (size_t i = servedConnections; i < rdmaCtxs.size(); i++) {
             // -------------------------------------------------------------------------------------
+            auto* rContext = rdmaCtxs[i];
             if (rContext->type != Type::WORKER) { throw; }
             // -------------------------------------------------------------------------------------
             initServer->nodeId = nodeId; 
@@ -130,6 +131,7 @@ class Storage
             cm->exchangeInitialMesssage(*(rContext), initServer);
             
          }
+         servedConnections = rdmaCtxs.size();
          std::cout << "Finished connection " << "\n";
 
       });
@@ -142,7 +144,6 @@ class Storage
          rdma::InitMessage* initServer = (rdma::InitMessage*)cm->getGlobalBuffer().allocate(sizeof(rdma::InitMessage));
          // -------------------------------------------------------------------------------------
          size_t numConnections = (FLAGS_worker);
-         std::cout << "Waiting for connections " << numConnections << "\n";
          while (cm->getNumberIncomingConnections() != (numConnections))
             ;  // block until client is connected
 
@@ -193,6 +194,7 @@ class Storage
    profiling::ProfilingThread pt;
    std::vector<std::thread> profilingThread;
    std::unordered_map<std::string,MemoryRegionDesc> catalog; // ptr, size of region
+   size_t servedConnections = 0;
    int regions =0;
 
 };
