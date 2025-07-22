@@ -236,10 +236,14 @@ int main(int argc, char* argv[]) {
       std::cout << "Storage Node" << std::endl;
       nam::Storage db;
       db.registerMemoryRegion("block", FLAGS_dramGB * 1024 * 1024 * 1024);
-      if (!FLAGS_rc)
+      // Start connection threads
+      if (!FLAGS_rc) {
         db.startAndConnect();
-      else
+      }
+      else {
+        std::cout << "Running RC specific setup\n";
         db.startAndConnect(FLAGS_worker * 2);
+      }
       // -------------------------------------------------------------------------------------
       while (db.getCM().getNumberIncomingConnections()) {}
       // auto desc = db.getMemoryRegion("block");
@@ -328,9 +332,19 @@ int main(int argc, char* argv[]) {
                   // -------------------------------------------------------------------------------------
                   // Create separate connection for RC benchmark
                   // Assuming only one storge node
-                  auto& ip = STORAGE_NODES[FLAGS_storage_nodes][0];
-                  // cctxs[n_i].rctx = &(cm.initiateConnection(ip, rdma::Type::WORKER, workerId, nodeId));
-                  // rdma::RdmaContext rctx2 
+                  if (FLAGS_rc) {
+                    std::cout << "Setting up separate connection for RC\n";
+                    auto& ip = STORAGE_NODES[FLAGS_storage_nodes][0];
+                    auto workerId = threads::Worker::my().workerId;
+                    auto nodeId = threads::Worker::my().nodeId_;
+                    auto& rctx2 = cm.initiateConnection(ip, rdma::Type::WORKER, workerId, nodeId);
+                    auto* init =
+                        static_cast<rdma::InitMessage*>(cm.getGlobalBuffer().allocate(sizeof(rdma::InitMessage)));
+                    init->nodeId = nodeId;
+                    init->threadId = workerId + (nodeId * FLAGS_worker);
+                    cm.exchangeInitialMesssage(rctx2, init);
+                    threads::Worker::my().cctxs.push_back({&rctx2, 0});
+                  }
 
                   // -------------------------------------------------------------------------------------
                   uint64_t* barrier_buffer = static_cast<uint64_t*>(cm.getGlobalBuffer().allocate(64, 64));

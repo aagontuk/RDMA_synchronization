@@ -23,7 +23,7 @@
 #include <thread>
 #include <unordered_map>
 
-static int debug = 0;
+static int debug = 1;
 #define DEBUG_LOG(msg) \
    if (debug)          \
    std::cout << msg << std::endl
@@ -483,9 +483,11 @@ class CM
       std::unordered_map<uintptr_t, ComSetupContext*> connections;
       while (running) {
          struct rdma_cm_event* event;
+         DEBUG_LOG("Waiting for event");
          auto ret = rdma_get_cm_event(incomingChannel, &event);
          if (ret)
             throw;
+         DEBUG_LOG("Event received");
          struct rdma_cm_id* currentId = event->id;
          ComSetupContext* context;
          if (event->event == RDMA_CM_EVENT_CONNECT_REQUEST)  // if new connection create context
@@ -676,6 +678,7 @@ class CM
          }
          completions += comp;
       }
+      DEBUG_LOG("Experiment info exchanged");
    }
 
   private:

@@ -69,6 +69,8 @@ class Storage
          std::cout << "Waiting for connections " << numConnections << "\n";
          while (cm->getNumberIncomingConnections() != (numConnections))
             ;  // block until client is connected
+         
+         std::cout << "All connections done\n";
 
          std::vector<RdmaContext*> rdmaCtxs(cm->getIncomingConnections());  // get cm ids of incomming
 
@@ -105,6 +107,8 @@ class Storage
          std::cout << "Waiting for connections " << numConnections << "\n";
          while (cm->getNumberIncomingConnections() != (numConnections))
             ;  // block until client is connected
+
+         std::cout << "All connections done\n";
 
          std::vector<RdmaContext*> rdmaCtxs(cm->getIncomingConnections());  // get cm ids of incomming
 
