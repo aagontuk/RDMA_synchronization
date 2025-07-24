@@ -33,6 +33,7 @@ DEFINE_bool(CRC, false, "");
 DEFINE_bool(farm, false, "");
 DEFINE_bool(broken, false, "");
 DEFINE_bool(rc, false, "");
+DEFINE_bool(rcopt, false, "");
 DEFINE_bool(pessimistic, false, "");
 DEFINE_uint64(padding, 8, "");
 DEFINE_uint64(sleep, 0, "sleep in microseconds ");
@@ -70,7 +71,7 @@ void run_test(uint32_t READ_RATIO,
               uint64_t& aborts) {
    if (READ_RATIO == 100 || utils::RandomGenerator::getRandU64(0, 100) < READ_RATIO) {
       auto start = utils::getTimePoint();
-      OptimisticLock<Consistency, LockType> tuple(rctx, rctx2, lock_addr, tuple_buffer, FLAGS_block_size, rc_buffer);
+      OptimisticLock<Consistency, LockType> tuple(rctx, rctx2, lock_addr, tuple_buffer, FLAGS_block_size, rc_buffer, reads);
       for (uint64_t repeatCounter = 0;; repeatCounter++) {
          try {
             tuple.lock();
@@ -242,8 +243,7 @@ int main(int argc, char* argv[]) {
       db.startAndConnect();
       
       // Wait for the second connection from each worker for RC benchmark
-      if (FLAGS_rc) {
-        std::cout << "Running RC specific setup\n";
+      if (FLAGS_rcopt) {
         db.startAndConnect(FLAGS_worker * 2);
       }
 
@@ -272,6 +272,8 @@ int main(int argc, char* argv[]) {
          benchmark += "-broken";
       } else if (FLAGS_rc) {
          benchmark += "-rc";
+      } else if (FLAGS_rcopt) {
+         benchmark += "-rcopt";
       }
       if (FLAGS_footer) { benchmark += "-footer"; }
       if (FLAGS_pessimistic) { benchmark = "pessimistic"; }
@@ -320,7 +322,6 @@ int main(int argc, char* argv[]) {
                   auto& cm = compute.getCM();
                   auto* rctx = threads::Worker::my().cctxs[0].rctx;
                   auto desc = threads::Worker::my().catalog[0];
-                  std::cout << "Memory region size: " << desc.size_bytes << "\n";
                   std::vector<uint64_t*> tuple_buffers;
                   std::vector<uint64_t*> rc_buffers;
                   std::vector<uint64_t*> lock_buffers;
@@ -336,8 +337,8 @@ int main(int argc, char* argv[]) {
                   // Create separate connection for RC benchmark
                   // Assuming only one storge node
                   nam::rdma::RdmaContext rctx2;
-                  if (FLAGS_rc) {
-                    std::cout << "Setting up separate connection for RC\n";
+                  if (FLAGS_rcopt) {
+                    std::cout << "Setting up second QP connection" << std::endl;
                     auto& ip = STORAGE_NODES[FLAGS_storage_nodes][0];
                     auto workerId = threads::Worker::my().workerId;
                     auto nodeId = threads::Worker::my().nodeId_;
@@ -397,7 +398,7 @@ int main(int argc, char* argv[]) {
                            } else if (FLAGS_broken) {
                               run_test<Broken, FooterLock>(READ_RATIO, *rctx, rctx2, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],
                                                             updates, reads, aborts);
-                           } else if (FLAGS_rc) {
+                           } else if (FLAGS_rc | FLAGS_rcopt) {
                               run_test<RC, FooterLock>(READ_RATIO, *rctx, rctx2, lock_addr, lock_buffers[b % 2], tuple_buffers[b % 2], rc_buffers[b % 2],
                                                             updates, reads, aborts);
                            }
