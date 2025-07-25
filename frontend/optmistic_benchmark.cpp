@@ -336,7 +336,7 @@ int main(int argc, char* argv[]) {
                   // -------------------------------------------------------------------------------------
                   // Create separate connection for RC benchmark
                   // Assuming only one storge node
-                  nam::rdma::RdmaContext rctx2;
+                  nam::rdma::RdmaContext rctx2{};
                   if (FLAGS_rcopt) {
                     std::cout << "Setting up second QP connection" << std::endl;
                     auto& ip = STORAGE_NODES[FLAGS_storage_nodes][0];
