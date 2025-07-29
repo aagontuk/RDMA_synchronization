@@ -27,6 +27,8 @@ static constexpr uint64_t EXCLUSIVE_UNLOCK_TO_BE_ADDED = 0xFFFFFFFFFFFFFFFF - EX
 static constexpr uint64_t UNLOCKED = 0;
 static constexpr uint64_t MASKED_SHARED_LOCKS = 0x1000000000000000;
 static constexpr uint64_t SHARED_UNLOCK_TO_BE_ADDED = 0xFFFFFFFFFFFFFFFF;
+
+static constexpr int RC_BATCH_SIZE =  16;
 // -------------------------------------------------------------------------------------
 // Protected region is just a memory buffer
 // FaRM Footer layout:[V]...[V]...[V]...[L]
@@ -323,25 +325,60 @@ struct OptimisticLock {
       }
       
       if constexpr (std::is_same_v<RC, Consistency>) {
-        int comp{0};
+        if (rctx2.mr) {
+          if (opnum != 0 && ((opnum + 1) % (RC_BATCH_SIZE * 2)) == 0) {
+            int comp{0};
 
-        /*
-        int tot_comp{0};
-        int tot_expected{1};
-        ibv_wc wcReturn[2];
-        while (tot_comp != tot_expected) {
-          _mm_pause();
-          auto expected = tot_expected - tot_comp;
-          comp = rdma::pollCompletion(rctx.id->qp->send_cq, expected, wcReturn);
-         for (int i = 0; i < comp; i++) {
-            if (wcReturn[i].status != IBV_WC_SUCCESS) {
-               throw;
+            int tot_comp{0};
+            int tot_expected{RC_BATCH_SIZE};
+            ibv_wc wcReturn[RC_BATCH_SIZE];
+            while (tot_comp != tot_expected) {
+              _mm_pause();
+              auto expected = tot_expected - tot_comp;
+              comp = rdma::pollCompletion(rctx.id->qp->send_cq, expected, wcReturn);
+              for (int i = 0; i < comp; i++) {
+                  if (wcReturn[i].status != IBV_WC_SUCCESS) {
+                    throw;
+                  }
+              }
+              tot_comp += comp;
             }
-         }
-          tot_comp += comp;
+
+            tot_comp = 0;
+            while (tot_comp != tot_expected) {
+              _mm_pause();
+              auto expected = tot_expected - tot_comp;
+              comp = rdma::pollCompletion(rctx2.id->qp->send_cq, expected, wcReturn);
+              for (int i = 0; i < comp; i++) {
+                  if (wcReturn[i].status != IBV_WC_SUCCESS) {
+                    throw;
+                  }
+              }
+              tot_comp += comp;
+            }
+          }
         }
-        */
-        
+        else {
+          if (opnum != 0 && ((opnum + 1) % RC_BATCH_SIZE) == 0) {
+            int comp{0};
+
+            int tot_comp{0};
+            int tot_expected{RC_BATCH_SIZE};
+            ibv_wc wcReturn[RC_BATCH_SIZE];
+            while (tot_comp != tot_expected) {
+              _mm_pause();
+              auto expected = tot_expected - tot_comp;
+              comp = rdma::pollCompletion(rctx.id->qp->send_cq, expected, wcReturn);
+              for (int i = 0; i < comp; i++) {
+                  if (wcReturn[i].status != IBV_WC_SUCCESS) {
+                    throw;
+                  }
+              }
+              tot_comp += comp;
+            }
+          }
+        }
+        /*
         ibv_wc wcReturn;
         while (comp == 0) {
           _mm_pause();
@@ -362,6 +399,7 @@ struct OptimisticLock {
         if (prev_version != *v_version){
           throw OLRestartException();
         }
+        */
       } else {
         int comp{0};
         ibv_wc wcReturn;
