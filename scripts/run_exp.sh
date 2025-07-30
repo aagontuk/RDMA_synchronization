@@ -14,9 +14,11 @@ BLOCK_SIZE=1024
 LOG_FILE="${SCRIPT_DIR}/../client_stats"
 RESULTS="${SCRIPT_DIR}/results.csv"
 
+benchmarks=("pessimistic" "broken" "rc" "rcopt")
+
 echo "size,threads,bench,throughput" > "${RESULTS}"
 
-for bench in "pessimistic" "broken" "rc" "rcopt"; do
+for bench in ${benchmarks[@]}; do
   for threads in 1 2 4 8 16; do
     retry=true
     while ${retry}; do
