@@ -28,7 +28,7 @@ function system_setup() {
 
   # Install plot packages
   sudo apt install -y python3-pip
-  pip install matplotlib
+  pip install matplotlib pandas
 
   if [[ "$vendor" == *"GenuineIntel"* ]]; then
     # Set scaling governor to performance
