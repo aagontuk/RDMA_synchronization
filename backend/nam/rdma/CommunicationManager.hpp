@@ -23,7 +23,7 @@
 #include <thread>
 #include <unordered_map>
 
-static int debug = 1;
+static int debug = 0;
 #define DEBUG_LOG(msg) \
    if (debug)          \
    std::cout << msg << std::endl

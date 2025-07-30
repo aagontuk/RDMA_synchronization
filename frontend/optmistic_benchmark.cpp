@@ -119,7 +119,7 @@ void run_pessimistic(uint32_t READ_RATIO,
                      uint64_t& aborts) {
    if (READ_RATIO == 100 || utils::RandomGenerator::getRandU64(0, 100) < READ_RATIO) {
       auto start = utils::getTimePoint();
-      ReaderWriterLock tuple(rctx, lock_addr, lock_buffer, tuple_buffer, FLAGS_block_size);
+      ReaderWriterLock tuple(rctx, lock_addr, lock_buffer, tuple_buffer, FLAGS_block_size, reads);
       for (uint64_t repeatCounter = 0;; repeatCounter++) {
          try {
             tuple.lockShared();

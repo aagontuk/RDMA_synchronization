@@ -28,7 +28,7 @@ static constexpr uint64_t UNLOCKED = 0;
 static constexpr uint64_t MASKED_SHARED_LOCKS = 0x1000000000000000;
 static constexpr uint64_t SHARED_UNLOCK_TO_BE_ADDED = 0xFFFFFFFFFFFFFFFF;
 
-static constexpr int RC_BATCH_SIZE =  16;
+static constexpr int RC_BATCH_SIZE =  32;
 // -------------------------------------------------------------------------------------
 // Protected region is just a memory buffer
 // FaRM Footer layout:[V]...[V]...[V]...[L]
@@ -485,9 +485,10 @@ struct ExclusiveLock {
       uint64_t* lock_buffer;
       uint64_t* tuple_buffer;
       size_t bytes;
+      uint64_t opnum = 0;
       // -------------------------------------------------------------------------------------
-      ReaderWriterLock(nam::rdma::RdmaContext& rctx, uintptr_t remote_address, uint64_t* lock_buffer, uint64_t* tuple_buffer, size_t bytes)
-          : rctx(rctx), remote_address(remote_address), lock_buffer(lock_buffer), tuple_buffer(tuple_buffer), bytes(bytes){};
+      ReaderWriterLock(nam::rdma::RdmaContext& rctx, uintptr_t remote_address, uint64_t* lock_buffer, uint64_t* tuple_buffer, size_t bytes, uint64_t opnum = 0)
+          : rctx(rctx), remote_address(remote_address), lock_buffer(lock_buffer), tuple_buffer(tuple_buffer), bytes(bytes), opnum(opnum){};
       // -------------------------------------------------------------------------------------
       // input position and buffer
       void lockExclusive() {
@@ -511,20 +512,42 @@ struct ExclusiveLock {
       }
       // -------------------------------------------------------------------------------------
       void lockShared() {
-         volatile uint64_t& s_locked = lock_buffer[0];
+         // volatile uint64_t& s_locked = lock_buffer[0];
          rdma::postFetchAdd(1, lock_buffer, rctx, rdma::completion::unsignaled, remote_address);
          rdma::postRead(tuple_buffer, rctx, rdma::completion::signaled, remote_address + 8, bytes - 8, 0);
+         /*
          int comp{0};
          ibv_wc wcReturn;
          while (comp == 0) {
             _mm_pause();
             comp = rdma::pollCompletion(rctx.id->qp->send_cq, 1, &wcReturn);
          }
+         */
+        if (opnum != 0 && ((opnum + 1) % RC_BATCH_SIZE) == 0) {
+          int comp{0};
+
+          int tot_comp{0};
+          int tot_expected{RC_BATCH_SIZE};
+          ibv_wc wcReturn[RC_BATCH_SIZE];
+          while (tot_comp != tot_expected) {
+            _mm_pause();
+            auto expected = tot_expected - tot_comp;
+            comp = rdma::pollCompletion(rctx.id->qp->send_cq, expected, wcReturn);
+            for (int i = 0; i < comp; i++) {
+                if (wcReturn[i].status != IBV_WC_SUCCESS) {
+                  throw;
+                }
+            }
+            tot_comp += comp;
+          }
+        }
          // -------------------------------------------------------------------------------------
+         /*
          if (s_locked >= EXCLUSIVE_LOCKED) {
             unlockShared();
             throw OLRestartException();
          }
+         */
       }
       // -------------------------------------------------------------------------------------
       void unlockShared() { rdma::postFetchAdd(int64_t{-1}, lock_buffer, rctx, rdma::completion::unsignaled, remote_address, true); }
