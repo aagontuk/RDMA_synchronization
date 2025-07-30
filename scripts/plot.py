@@ -88,8 +88,8 @@ def plot_sizes_vs_tput(df, machine, threads, out_dir):
 
 def plot_threads_vs_tput(df, machine, size, out_dir):
     file_paths = []
-    file_paths.append(os.path.join(out_dir, "sizes_vs_tput_m{}_s{}.pdf".format(machine, size)))
-    file_paths.append(os.path.join(out_dir, "sizes_vs_tput_m{}_s{}.png".format(machine, size)))
+    file_paths.append(os.path.join(out_dir, "threads_vs_tput_m{}_s{}.pdf".format(machine, size)))
+    file_paths.append(os.path.join(out_dir, "threads_vs_tput_m{}_s{}.png".format(machine, size)))
 
     fig, ax = plt.subplots(figsize=(PLOT_WIDTH, PLOT_HEIGHT))
 
