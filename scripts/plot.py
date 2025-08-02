@@ -47,8 +47,8 @@ X_COLUMN_THREADS='threads'
 X_LBL_THREADS='Threads'
 Y_COLUMN='throughput'
 Y_LBL='Mop/s'
-LABELS = {"pessimistic": "pessimistic_batch_32", "pessimistic_b1": "pessimistic", "broken": "broken", "rc": "rc_batch_32", "rcopt": "rc_2QP_batch_16"}
-COLORS = {"pessimistic": "#984ea3", "pessimistic_b1": "#377eb8", "broken": "#e41a1c", "rc": "#ff7f00", "rcopt": "#4daf4a"}
+LABELS = {"pessimistic": "pessimistic_batch_32", "pessimistic_b1": "pessimistic", "broken": "broken", "rc": "rc_batch_32", "rcopt": "rc_2QP_batch_16", "farm_broken": "farm_broken", "farm_fixed": "farm_fixed", "farm_fixed_batch_32": "farm_fixed_batch_32"}
+COLORS = {"pessimistic": "#984ea3", "pessimistic_b1": "#377eb8", "broken": "#e41a1c", "rc": "#ff7f00", "rcopt": "#4daf4a", "farm_broken": "#a65628", "farm_fixed": "#f781bf", "farm_fixed_batch_32": "#6a3d9a"}
 
 def plot_sizes_vs_tput(df, machine, threads, out_dir):
     file_paths = []
@@ -81,6 +81,7 @@ def plot_sizes_vs_tput(df, machine, threads, out_dir):
     ax.set_ylim(bottom=0, top=y_lim)
     ax.set_xlim(left=64)
 
+    plt.legend(loc='lower center', bbox_to_anchor=(0.5, 1.06), ncol=3)
     fig = plt.gcf()
     fig.tight_layout()
     for file in file_paths:
