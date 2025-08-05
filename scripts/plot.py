@@ -47,8 +47,8 @@ X_COLUMN_THREADS='threads'
 X_LBL_THREADS='Threads'
 Y_COLUMN='throughput'
 Y_LBL='Mop/s'
-LABELS = {"pessimistic": "pessimistic_batch_32", "pessimistic_b1": "pessimistic", "broken": "broken", "rc": "rc_batch_32", "rcopt": "rc_2QP_batch_16", "farm_broken": "farm_broken", "farm_fixed": "farm_fixed", "farm_fixed_batch_32": "farm_fixed_batch_32"}
-COLORS = {"pessimistic": "#984ea3", "pessimistic_b1": "#377eb8", "broken": "#e41a1c", "rc": "#ff7f00", "rcopt": "#4daf4a", "farm_broken": "#a65628", "farm_fixed": "#f781bf", "farm_fixed_batch_32": "#6a3d9a"}
+LABELS = {"pessimistic": "pessimistic_batch_32", "pessimistic_b1": "pessimistic", "broken": "broken", "rc": "rc_batch_32", "rcopt": "rc_2QP_batch_16", "farm_broken": "farm_broken", "farm_fixed": "farm_fixed", "farm_fixed_batch_32": "farm_fixed_batch_32", "farm_fixed_memcpy": "farm_fixed_memcpy", "farm_fixed_memcpy_batch_32": "farm_fixed_memcpy_batch_32"}
+COLORS = {"pessimistic": "#984ea3", "pessimistic_b1": "#377eb8", "broken": "#e41a1c", "rc": "#ff7f00", "rcopt": "#4daf4a", "farm_broken": "#a65628", "farm_fixed": "#f781bf", "farm_fixed_batch_32": "#6a3d9a", "farm_fixed_memcpy": "#fdbf6f", "farm_fixed_memcpy_batch_32": "#cab2d6"}
 
 def plot_sizes_vs_tput(df, machine, threads, out_dir):
     file_paths = []
@@ -60,6 +60,7 @@ def plot_sizes_vs_tput(df, machine, threads, out_dir):
     # Find all the unique names from the 'bench' columns
     bench_names = df['bench'].unique()
     sizes = df['size'].unique()
+    bench_names.sort()
 
     y_max = 0
     for name in bench_names:
@@ -97,6 +98,7 @@ def plot_threads_vs_tput(df, machine, size, out_dir):
     # Find all the unique names from the 'bench' columns
     bench_names = df['bench'].unique()
     threads = df['threads'].unique()
+    bench_names.sort()
 
     y_max = 0
     for name in bench_names:
