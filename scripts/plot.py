@@ -25,7 +25,7 @@ PLOT_ASPECT_RATIO = 16/6
 # PLOT_WIDTH = 3.38 # paper
 PLOT_WIDTH = 6
 # PLOT_HEIGHT = 3 # paper
-PLOT_HEIGHT = 4
+PLOT_HEIGHT = 6
 
 SMALL_SIZE = 9
 MEDIUM_SIZE = 10
@@ -47,8 +47,8 @@ X_COLUMN_THREADS='threads'
 X_LBL_THREADS='Threads'
 Y_COLUMN='throughput'
 Y_LBL='Mop/s'
-LABELS = {"pessimistic": "pessimistic_batch_32", "pessimistic_b1": "pessimistic", "broken": "broken", "rc": "rc_batch_32", "rcopt": "rc_2QP_batch_16", "farm_broken": "farm_broken", "farm_fixed": "farm_fixed", "farm_fixed_batch_32": "farm_fixed_batch_32", "farm_fixed_memcpy": "farm_fixed_memcpy", "farm_fixed_memcpy_batch_32": "farm_fixed_memcpy_batch_32"}
-COLORS = {"pessimistic": "#984ea3", "pessimistic_b1": "#377eb8", "broken": "#e41a1c", "rc": "#ff7f00", "rcopt": "#4daf4a", "farm_broken": "#a65628", "farm_fixed": "#f781bf", "farm_fixed_batch_32": "#6a3d9a", "farm_fixed_memcpy": "#fdbf6f", "farm_fixed_memcpy_batch_32": "#cab2d6"}
+LABELS = {"pessimistic": "pessimistic_batch_32", "pessimistic_b1": "pessimistic", "broken": "broken", "rc": "rc_batch_32", "rcopt": "rc_2QP_batch_16", "farm_broken": "farm_broken", "farm_fixed": "farm_fixed", "farm_fixed_batch_32": "farm_fixed_batch_32", "farm_fixed_memcpy": "farm_fixed_memcpy", "farm_fixed_memcpy_batch_32": "farm_fixed_memcpy_batch_32", "broken_batch_32": "broken_batch_32"}
+COLORS = {"pessimistic": "#984ea3", "pessimistic_b1": "#377eb8", "broken": "#e41a1c", "rc": "#ff7f00", "rcopt": "#4daf4a", "farm_broken": "#a65628", "farm_fixed": "#f781bf", "farm_fixed_batch_32": "#6a3d9a", "farm_fixed_memcpy": "#fdbf6f", "farm_fixed_memcpy_batch_32": "#cab2d6", "broken_batch_32": "#a6cee3"}
 
 def plot_sizes_vs_tput(df, machine, threads, out_dir):
     file_paths = []
@@ -120,6 +120,7 @@ def plot_threads_vs_tput(df, machine, size, out_dir):
     ax.set_ylim(bottom=0, top=y_lim)
     ax.set_xlim(left=threads.min())
 
+    plt.legend(loc='lower center', bbox_to_anchor=(0.5, 1.06), ncol=3)
     fig = plt.gcf()
     fig.tight_layout()
     for file in file_paths:
