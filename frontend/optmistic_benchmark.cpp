@@ -82,7 +82,12 @@ void run_test(uint32_t READ_RATIO,
             aborts++;
          }
       }
-      reads++;
+      if (RC_BATCH_SIZE > 1 && std::is_same_v<Broken, Consistency>) {
+        reads += (RC_BATCH_SIZE * 2);
+      }
+      else {
+        reads++;
+      }
       auto end = utils::getTimePoint();
       threads::Worker::my().counters.incr_by(profiling::WorkerCounters::latency, (end - start));
    } else {
@@ -405,7 +410,12 @@ int main(int argc, char* argv[]) {
                         }
                      }
                      b++;
-                     threads::Worker::my().counters.incr(profiling::WorkerCounters::tx_p);
+                     if (RC_BATCH_SIZE > 1 && FLAGS_broken) {
+                        threads::Worker::my().counters.incr_by(profiling::WorkerCounters::tx_p, RC_BATCH_SIZE * 2);
+                     }
+                     else {
+                        threads::Worker::my().counters.incr(profiling::WorkerCounters::tx_p);
+                     }
                   }
                   g_updates += updates;
                   g_aborts += aborts;

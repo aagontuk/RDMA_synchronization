@@ -248,7 +248,32 @@ struct OptimisticLock {
 
       } else if constexpr (std::is_same_v<Broken, Consistency>) {
          // read version first
-         rdma::postRead(&tuple_buffer[0], rctx, rdma::completion::signaled, remote_address, bytes, 0);
+         int batch_size = 1;
+         if (RC_BATCH_SIZE > 1) {
+            batch_size = RC_BATCH_SIZE * 2;
+         }
+         
+         for (int i = 0; i < batch_size; i++) {
+            rdma::postRead(&tuple_buffer[0], rctx, rdma::completion::signaled, remote_address, bytes, 0);
+         }
+         
+         int comp{0};
+         int tot_comp{0};
+         int tot_expected{batch_size};
+         ibv_wc wcReturn[RC_BATCH_SIZE * 2];
+         while (tot_comp != tot_expected) {
+           _mm_pause();
+           auto expected = tot_expected - tot_comp;
+           comp = rdma::pollCompletion(rctx.id->qp->send_cq, expected, wcReturn);
+           for (int i = 0; i < comp; i++) {
+               if (wcReturn[i].status != IBV_WC_SUCCESS) {
+                 throw;
+               }
+           }
+           tot_comp += comp;
+         }
+
+         /*
          int comp{0};
          ibv_wc wcReturn;
          while (comp == 0) {
@@ -259,6 +284,7 @@ struct OptimisticLock {
          // -------------------------------------------------------------------------------------
          checkLock(); // check if the lock is not locked by the writer
          // -------------------------------------------------------------------------------------
+         */
       } else if constexpr (std::is_same_v<RC, Consistency>) {
          // aynchronously submit 2 reads, then check if the version match and not locked by writer
          // this is first read
@@ -362,6 +388,32 @@ struct OptimisticLock {
 
       } else if constexpr (std::is_same_v<FaRM, Consistency>) { 
         // Nothing to do for FaRM, we already read the version
+      } else if constexpr (std::is_same_v<Broken, Consistency>) {
+         int batch_size = 1;
+         if (RC_BATCH_SIZE > 1) {
+            batch_size = RC_BATCH_SIZE * 2;
+         }
+         
+         for (int i = 0; i < batch_size; i++) {
+            rdma::postRead(tuple_buffer, rctx, rdma::completion::signaled, remote_address, 8, 0);
+         }
+         
+         int comp{0};
+         int tot_comp{0};
+         int tot_expected{batch_size};
+         ibv_wc wcReturn[RC_BATCH_SIZE * 2];
+         while (tot_comp != tot_expected) {
+           _mm_pause();
+           auto expected = tot_expected - tot_comp;
+           comp = rdma::pollCompletion(rctx.id->qp->send_cq, expected, wcReturn);
+           for (int i = 0; i < comp; i++) {
+               if (wcReturn[i].status != IBV_WC_SUCCESS) {
+                 throw;
+               }
+           }
+           tot_comp += comp;
+         }
+
       } else {
          rdma::postRead(tuple_buffer, rctx, rdma::completion::signaled, remote_address, 8, 0);
       }
@@ -442,8 +494,10 @@ struct OptimisticLock {
           throw OLRestartException();
         }
         */
-      }else if constexpr (std::is_same_v<FaRM, Consistency>) {  
+      } else if constexpr (std::is_same_v<FaRM, Consistency>) {  
         // nothing to do for FaRM, we already read the version
+      } else if constexpr (std::is_same_v<Broken, Consistency>) {
+        // Nothing to do for Broken, we already read the version
       } else {
         int comp{0};
         ibv_wc wcReturn;
