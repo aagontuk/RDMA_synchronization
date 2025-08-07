@@ -141,7 +141,7 @@ void run_pessimistic(uint32_t READ_RATIO,
             aborts++;
          }
       }
-      reads++;
+      reads += FLAGS_batch_size;
       auto end = utils::getTimePoint();
       threads::Worker::my().counters.incr_by(profiling::WorkerCounters::latency, (end - start));
    } else {
@@ -431,6 +431,9 @@ int main(int argc, char* argv[]) {
                         threads::Worker::my().counters.incr_by(profiling::WorkerCounters::tx_p, FLAGS_batch_size);
                      }
                      else if (FLAGS_batch_size > 1 && FLAGS_rcopt) {
+                        threads::Worker::my().counters.incr_by(profiling::WorkerCounters::tx_p, FLAGS_batch_size);
+                     }
+                     else if (FLAGS_batch_size > 1 && FLAGS_pessimistic) {
                         threads::Worker::my().counters.incr_by(profiling::WorkerCounters::tx_p, FLAGS_batch_size);
                      }
                      else {

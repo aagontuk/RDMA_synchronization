@@ -631,33 +631,26 @@ struct ExclusiveLock {
       // -------------------------------------------------------------------------------------
       void lockShared() {
          // volatile uint64_t& s_locked = lock_buffer[0];
-         rdma::postFetchAdd(1, lock_buffer, rctx, rdma::completion::unsignaled, remote_address);
-         rdma::postRead(tuple_buffer, rctx, rdma::completion::signaled, remote_address + 8, bytes - 8, 0);
-         /*
-         int comp{0};
-         ibv_wc wcReturn;
-         while (comp == 0) {
-            _mm_pause();
-            comp = rdma::pollCompletion(rctx.id->qp->send_cq, 1, &wcReturn);
-         }
-         */
-        if (opnum != 0 && ((opnum + 1) % (RC_BATCH_SIZE * 2)) == 0) {
-          int comp{0};
+        for (int i = 0; i < FLAGS_batch_size; i++) {
+          rdma::postFetchAdd(1, lock_buffer, rctx, rdma::completion::unsignaled, remote_address);
+          rdma::postRead(tuple_buffer, rctx, rdma::completion::signaled, remote_address + 8, bytes - 8, 0);
+          rdma::postFetchAdd(int64_t{-1}, lock_buffer, rctx, rdma::completion::unsignaled, remote_address, true); 
+        }
 
-          int tot_comp{0};
-          int tot_expected{RC_BATCH_SIZE * 2};
-          ibv_wc wcReturn[RC_BATCH_SIZE * 2];
-          while (tot_comp != tot_expected) {
-            _mm_pause();
-            auto expected = tot_expected - tot_comp;
-            comp = rdma::pollCompletion(rctx.id->qp->send_cq, expected, wcReturn);
-            for (int i = 0; i < comp; i++) {
-                if (wcReturn[i].status != IBV_WC_SUCCESS) {
-                  throw;
-                }
-            }
-            tot_comp += comp;
+        int comp{0};
+        int tot_comp{0};
+        int tot_expected{FLAGS_batch_size};
+        ibv_wc wcReturn[RC_BATCH_SIZE];
+        while (tot_comp != tot_expected) {
+          _mm_pause();
+          auto expected = tot_expected - tot_comp;
+          comp = rdma::pollCompletion(rctx.id->qp->send_cq, expected, wcReturn);
+          for (int i = 0; i < comp; i++) {
+              if (wcReturn[i].status != IBV_WC_SUCCESS) {
+                throw;
+              }
           }
+          tot_comp += comp;
         }
          // -------------------------------------------------------------------------------------
          /*
@@ -668,5 +661,5 @@ struct ExclusiveLock {
          */
       }
       // -------------------------------------------------------------------------------------
-      void unlockShared() { rdma::postFetchAdd(int64_t{-1}, lock_buffer, rctx, rdma::completion::unsignaled, remote_address, true); }
+      void unlockShared() { /* Do nothing for batched version */ }
    };
