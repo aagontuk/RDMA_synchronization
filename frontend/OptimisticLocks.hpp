@@ -16,7 +16,7 @@
 #include <gflags/gflags.h>
 
 DEFINE_int32(batch_size, 32, "");
-DEFINE_bool(farm_memcpy, false, "");
+DEFINE_bool(memcpy, false, "");
 
 using namespace nam;
 struct OLRestartException {};
@@ -60,7 +60,7 @@ struct FaRM {
          if (prev != buffer[cl_i]) { throw OLRestartException(); }
          
          // Copy all bytes from the CL to a buffer except the first 8 bytes
-         if (FLAGS_farm_memcpy && user_buffer != nullptr) {
+         if (FLAGS_memcpy && user_buffer != nullptr) {
             int idx = cl_i == 0 ? 0 : cl_i - 1;
             memcpy((uint8_t*)user_buffer + idx * sizeof(uint64_t), (uint8_t*)buffer + cl_i * sizeof(uint64_t) + 8, CL - 8); 
          }
