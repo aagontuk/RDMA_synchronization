@@ -16,6 +16,7 @@
 #include <gflags/gflags.h>
 
 DEFINE_int32(batch_size, 32, "");
+DEFINE_bool(farm_memcpy, false, "");
 
 using namespace nam;
 struct OLRestartException {};
@@ -35,7 +36,6 @@ static void *user_buffer = nullptr;
 
 //------------- Configs ------------------------------------------------
 static constexpr int RC_BATCH_SIZE =  32;
-static constexpr bool FARM_MEMCPY = true;
 // -------------------------------------------------------------------------------------
 // Protected region is just a memory buffer
 // FaRM Footer layout:[V]...[V]...[V]...[L]
@@ -60,7 +60,7 @@ struct FaRM {
          if (prev != buffer[cl_i]) { throw OLRestartException(); }
          
          // Copy all bytes from the CL to a buffer except the first 8 bytes
-         if (FARM_MEMCPY && user_buffer != nullptr) {
+         if (FLAGS_farm_memcpy && user_buffer != nullptr) {
             int idx = cl_i == 0 ? 0 : cl_i - 1;
             memcpy((uint8_t*)user_buffer + idx * sizeof(uint64_t), (uint8_t*)buffer + cl_i * sizeof(uint64_t) + 8, CL - 8); 
          }
