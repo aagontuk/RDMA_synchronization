@@ -82,8 +82,14 @@ void run_test(uint32_t READ_RATIO,
             aborts++;
          }
       }
-      if (RC_BATCH_SIZE > 1 && std::is_same_v<Broken, Consistency>) {
-        reads += (RC_BATCH_SIZE * 2);
+      if (FLAGS_batch_size > 1 && std::is_same_v<Broken, Consistency>) {
+        reads += FLAGS_batch_size;
+      }
+      if (FLAGS_batch_size > 1 && std::is_same_v<RC, Consistency>) {
+        reads += FLAGS_batch_size;
+      }
+      if (FLAGS_batch_size > 1 && std::is_same_v<FaRM, Consistency>) {
+          reads += FLAGS_batch_size;
       }
       else {
         reads++;
@@ -282,6 +288,11 @@ int main(int argc, char* argv[]) {
       }
       if (FLAGS_footer) { benchmark += "-footer"; }
       if (FLAGS_pessimistic) { benchmark = "pessimistic"; }
+
+      if (FLAGS_batch_size > 32) {
+        std::cout << "Error: batch size must be <= 32" << std::endl;
+        return 1;
+      }
       // -------------------------------------------------------------------------------------
       std::vector<std::string> workload_type;  // warm up or benchmark
       std::vector<double> zipfs;
@@ -410,8 +421,17 @@ int main(int argc, char* argv[]) {
                         }
                      }
                      b++;
-                     if (RC_BATCH_SIZE > 1 && FLAGS_broken) {
-                        threads::Worker::my().counters.incr_by(profiling::WorkerCounters::tx_p, RC_BATCH_SIZE * 2);
+                     if (FLAGS_batch_size > 1 && FLAGS_broken) {
+                        threads::Worker::my().counters.incr_by(profiling::WorkerCounters::tx_p, FLAGS_batch_size);
+                     }
+                     else if (FLAGS_batch_size > 1 && FLAGS_rc) {
+                        threads::Worker::my().counters.incr_by(profiling::WorkerCounters::tx_p, FLAGS_batch_size);
+                     }
+                     else if (FLAGS_batch_size > 1 && FLAGS_farm) {
+                        threads::Worker::my().counters.incr_by(profiling::WorkerCounters::tx_p, FLAGS_batch_size);
+                     }
+                     else if (FLAGS_batch_size > 1 && FLAGS_rcopt) {
+                        threads::Worker::my().counters.incr_by(profiling::WorkerCounters::tx_p, FLAGS_batch_size);
                      }
                      else {
                         threads::Worker::my().counters.incr(profiling::WorkerCounters::tx_p);

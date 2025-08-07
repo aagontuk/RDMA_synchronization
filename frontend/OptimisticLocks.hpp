@@ -13,6 +13,9 @@
 #include "nam/utils/RandomGenerator.hpp"
 #include "nam/utils/Time.hpp"
 #include "nam/utils/crc64.hpp"
+#include <gflags/gflags.h>
+
+DEFINE_int32(batch_size, 32, "");
 
 using namespace nam;
 struct OLRestartException {};
@@ -31,7 +34,7 @@ static constexpr uint64_t SHARED_UNLOCK_TO_BE_ADDED = 0xFFFFFFFFFFFFFFFF;
 static void *user_buffer = nullptr;
 
 //------------- Configs ------------------------------------------------
-static constexpr int RC_BATCH_SIZE =  16;
+static constexpr int RC_BATCH_SIZE =  32;
 static constexpr bool FARM_MEMCPY = true;
 // -------------------------------------------------------------------------------------
 // Protected region is just a memory buffer
@@ -248,19 +251,14 @@ struct OptimisticLock {
 
       } else if constexpr (std::is_same_v<Broken, Consistency>) {
          // read version first
-         int batch_size = 1;
-         if (RC_BATCH_SIZE > 1) {
-            batch_size = RC_BATCH_SIZE * 2;
-         }
-         
-         for (int i = 0; i < batch_size; i++) {
+         for (int i = 0; i < FLAGS_batch_size; i++) {
             rdma::postRead(&tuple_buffer[0], rctx, rdma::completion::signaled, remote_address, bytes, 0);
          }
          
          int comp{0};
          int tot_comp{0};
-         int tot_expected{batch_size};
-         ibv_wc wcReturn[RC_BATCH_SIZE * 2];
+         int tot_expected{FLAGS_batch_size};
+         ibv_wc wcReturn[RC_BATCH_SIZE];
          while (tot_comp != tot_expected) {
            _mm_pause();
            auto expected = tot_expected - tot_comp;
@@ -286,52 +284,56 @@ struct OptimisticLock {
          // -------------------------------------------------------------------------------------
          */
       } else if constexpr (std::is_same_v<RC, Consistency>) {
+         int batch_size = FLAGS_batch_size;
+         
          // aynchronously submit 2 reads, then check if the version match and not locked by writer
          // this is first read
          // second read is done in unlock
-         if (rctx2.mr) {
-            if (opnum % 2 == 0)
-              rdma::postRead(&tuple_buffer[0], rctx, rdma::completion::unsignaled, remote_address, bytes, 0);
-            else
-              rdma::postRead(&tuple_buffer[0], rctx2, rdma::completion::unsignaled, remote_address, bytes, 0);
-         }
-         else {
-           rdma::postRead(&tuple_buffer[0], rctx, rdma::completion::unsignaled, remote_address, bytes, 0);
-         }
-         /*
-         int comp{0};
-         ibv_wc wcReturn;
-         while (comp == 0) {
-            _mm_pause();
-            comp = rdma::pollCompletion(rctx.id->qp->send_cq, 1, &wcReturn);
-         }
-         */
-      } else if constexpr (std::is_same_v<FaRM, Consistency>) { 
-          int batch_size = 1;
-          if (RC_BATCH_SIZE > 1) {
-            batch_size = RC_BATCH_SIZE * 2;
-          }
-          rdma::postRead(tuple_buffer, rctx, rdma::completion::signaled, remote_address, bytes, 0);
-          if (opnum != 0 && ((opnum + 1) % (batch_size)) == 0) {
-            int comp{0};
-            int tot_comp{0};
-            int tot_expected{batch_size};
-            ibv_wc wcReturn[RC_BATCH_SIZE * 2];
-            while (tot_comp != tot_expected) {
-              _mm_pause();
-              auto expected = tot_expected - tot_comp;
-              comp = rdma::pollCompletion(rctx.id->qp->send_cq, expected, wcReturn);
-              for (int i = 0; i < comp; i++) {
-                  if (wcReturn[i].status != IBV_WC_SUCCESS) {
-                    throw;
-                  }
+          if (rctx2.mr) {
+            if (batch_size > 1) {
+              for (int i = 0; i < batch_size; i++) {
+                if (i % 2 == 0)
+                  rdma::postRead(&tuple_buffer[0], rctx, rdma::completion::unsignaled, remote_address, bytes, 0);
+                else
+                  rdma::postRead(&tuple_buffer[0], rctx2, rdma::completion::unsignaled, remote_address, bytes, 0);
               }
-              tot_comp += comp;
             }
-
+            else {
+              if (opnum % 2 == 0)
+                rdma::postRead(&tuple_buffer[0], rctx, rdma::completion::unsignaled, remote_address, bytes, 0);
+              else
+                rdma::postRead(&tuple_buffer[0], rctx2, rdma::completion::unsignaled, remote_address, bytes, 0);
+            }
+          }
+          else {
             for (int i = 0; i < batch_size; i++) {
-              c.checkConsistencyProof(tuple_buffer, bytes);
+                rdma::postRead(&tuple_buffer[0], rctx, rdma::completion::unsignaled, remote_address, bytes, 0);
             }
+          }
+      } else if constexpr (std::is_same_v<FaRM, Consistency>) { 
+          for (int i = 0; i < FLAGS_batch_size; i++) {
+            rdma::postRead(tuple_buffer, rctx, rdma::completion::signaled, remote_address, bytes, 0);
+          }
+
+          int comp{0};
+          int tot_comp{0};
+          int tot_expected{FLAGS_batch_size};
+          ibv_wc wcReturn[RC_BATCH_SIZE];
+          
+          while (tot_comp != tot_expected) {
+            _mm_pause();
+            auto expected = tot_expected - tot_comp;
+            comp = rdma::pollCompletion(rctx.id->qp->send_cq, expected, wcReturn);
+            for (int i = 0; i < comp; i++) {
+                if (wcReturn[i].status != IBV_WC_SUCCESS) {
+                  throw;
+                }
+            }
+            tot_comp += comp;
+          }
+
+          for (int i = 0; i < FLAGS_batch_size; i++) {
+            c.checkConsistencyProof(tuple_buffer, bytes);
           }
       } else {
          rdma::postRead(tuple_buffer, rctx, rdma::completion::signaled, remote_address, bytes, 0);
@@ -376,32 +378,41 @@ struct OptimisticLock {
             rdma::postRead(&tuple_buffer[index], rctx, rdma::completion::signaled, remote_address + byte_offset, 16, 0);
          }
       } else if constexpr (std::is_same_v<RC, Consistency>) {
+         int batch_size = FLAGS_batch_size;
+
          if (rctx2.mr) {
-            if (opnum % 2 == 0)
-              rdma::postRead(rc_buffer, rctx2, rdma::completion::signaled, remote_address, 8, 0);
-            else
-              rdma::postRead(rc_buffer, rctx, rdma::completion::signaled, remote_address, 8, 0);
+           if (batch_size > 1) {
+              for (int i = 0; i < batch_size; i++) {
+                  if (i % 2 == 0)
+                    rdma::postRead(rc_buffer, rctx2, rdma::completion::signaled, remote_address, 8, 0);
+                  else
+                    rdma::postRead(rc_buffer, rctx, rdma::completion::signaled, remote_address, 8, 0);
+              }
+           }
+           else {
+              if (opnum % 2 == 0)
+                rdma::postRead(rc_buffer, rctx2, rdma::completion::signaled, remote_address, 8, 0);
+              else
+                rdma::postRead(rc_buffer, rctx, rdma::completion::signaled, remote_address, 8, 0);
+           }
          }
          else {
-            rdma::postRead(rc_buffer, rctx, rdma::completion::signaled, remote_address, 8, 0);
+            for (int i = 0; i < batch_size; i++) {
+                rdma::postRead(rc_buffer, rctx, rdma::completion::signaled, remote_address, 8, 0);
+            }
          }
 
       } else if constexpr (std::is_same_v<FaRM, Consistency>) { 
         // Nothing to do for FaRM, we already read the version
       } else if constexpr (std::is_same_v<Broken, Consistency>) {
-         int batch_size = 1;
-         if (RC_BATCH_SIZE > 1) {
-            batch_size = RC_BATCH_SIZE * 2;
-         }
-         
-         for (int i = 0; i < batch_size; i++) {
+         for (int i = 0; i < FLAGS_batch_size; i++) {
             rdma::postRead(tuple_buffer, rctx, rdma::completion::signaled, remote_address, 8, 0);
          }
          
          int comp{0};
          int tot_comp{0};
-         int tot_expected{batch_size};
-         ibv_wc wcReturn[RC_BATCH_SIZE * 2];
+         int tot_expected{FLAGS_batch_size};
+         ibv_wc wcReturn[RC_BATCH_SIZE];
          while (tot_comp != tot_expected) {
            _mm_pause();
            auto expected = tot_expected - tot_comp;
@@ -420,12 +431,12 @@ struct OptimisticLock {
       
       if constexpr (std::is_same_v<RC, Consistency>) {
         if (rctx2.mr) {
-          if (opnum != 0 && ((opnum + 1) % (RC_BATCH_SIZE * 2)) == 0) {
+          if (FLAGS_batch_size > 1) {
             int comp{0};
-
             int tot_comp{0};
-            int tot_expected{RC_BATCH_SIZE};
+            int tot_expected{FLAGS_batch_size / 2};
             ibv_wc wcReturn[RC_BATCH_SIZE];
+            
             while (tot_comp != tot_expected) {
               _mm_pause();
               auto expected = tot_expected - tot_comp;
@@ -451,25 +462,34 @@ struct OptimisticLock {
               tot_comp += comp;
             }
           }
+          else {
+            int comp{0};
+            ibv_wc wcReturn;
+            while (comp == 0) {
+              _mm_pause();
+              if (opnum % 2 == 0) {
+                comp = rdma::pollCompletion(rctx2.id->qp->send_cq, 1, &wcReturn);
+              } else {
+                comp = rdma::pollCompletion(rctx.id->qp->send_cq, 1, &wcReturn);
+              }
+            }
+          }
         }
         else {
-          if (opnum != 0 && ((opnum + 1) % (RC_BATCH_SIZE * 2)) == 0) {
-            int comp{0};
-
-            int tot_comp{0};
-            int tot_expected{RC_BATCH_SIZE * 2};
-            ibv_wc wcReturn[RC_BATCH_SIZE * 2];
-            while (tot_comp != tot_expected) {
-              _mm_pause();
-              auto expected = tot_expected - tot_comp;
-              comp = rdma::pollCompletion(rctx.id->qp->send_cq, expected, wcReturn);
-              for (int i = 0; i < comp; i++) {
-                  if (wcReturn[i].status != IBV_WC_SUCCESS) {
-                    throw;
-                  }
-              }
-              tot_comp += comp;
+          int comp{0};
+          int tot_comp{0};
+          int tot_expected{FLAGS_batch_size};
+          ibv_wc wcReturn[RC_BATCH_SIZE];
+          while (tot_comp != tot_expected) {
+            _mm_pause();
+            auto expected = tot_expected - tot_comp;
+            comp = rdma::pollCompletion(rctx.id->qp->send_cq, expected, wcReturn);
+            for (int i = 0; i < comp; i++) {
+                if (wcReturn[i].status != IBV_WC_SUCCESS) {
+                  throw;
+                }
             }
+            tot_comp += comp;
           }
         }
         /*
