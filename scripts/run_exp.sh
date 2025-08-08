@@ -15,6 +15,9 @@ LOG_FILE="${SCRIPT_DIR}/../client_stats"
 RESULTS="${SCRIPT_DIR}/results/set2/results_sm110p_set2.csv"
 
 benchmarks=("pessimistic:1" "pessimistic:32" "broken:1" "broken:32" "rc:32" "rcopt:32" "farm:1:nomemcpy" "farm:32:nomemcpy" "farm:1:memcpy" "farm:32:memcpy")
+# For FaRM broken benchmark
+# First checkout to main and rebuild then Run this separately
+# benchmarks=("farm:1:broken")
 sizes=(64 128 256 512 1024 2048 4096 8192)
 thread_configs=(1 2 4 8 16)
 
@@ -49,7 +52,12 @@ for size in ${sizes[@]}; do
         sleep 5
 
         # Run client over ssh
-        ssh node1 "${BIN} -ownIp=10.10.1.2 -run_for_seconds=$RUN_TIME -readratios 100 -${bench_name} -block_size $size -worker $threads -all_worker $threads -sockets $NUM_SOCKETS" -csv -csvFile ${LOG_FILE}.csv -lock_count $LOCK_COUNT -batch_size $bench_batch_size -${bench_extra}
+        # FaRM broken
+        if [ "$bench_extra" == "broken" ]; then
+          ssh node1 "${BIN} -ownIp=10.10.1.2 -run_for_seconds=$RUN_TIME -readratios 100 -${bench_name} -block_size $size -worker $threads -all_worker $threads -sockets $NUM_SOCKETS" -csv -csvFile ${LOG_FILE}.csv -lock_count $LOCK_COUNT
+        else
+          ssh node1 "${BIN} -ownIp=10.10.1.2 -run_for_seconds=$RUN_TIME -readratios 100 -${bench_name} -block_size $size -worker $threads -all_worker $threads -sockets $NUM_SOCKETS" -csv -csvFile ${LOG_FILE}.csv -lock_count $LOCK_COUNT -batch_size $bench_batch_size -${bench_extra}
+        fi
         
         sleep 1
 
@@ -67,7 +75,12 @@ for size in ${sizes[@]}; do
       done
 
       if [ "$bench_name" == "farm" ]; then
-        echo "${size},${LOCK_COUNT},${threads},${bench_name}_fixed_${bench_extra}_batch_${bench_batch_size},${avg}" >> "${RESULTS}"
+        # For FaRM broken
+        if [ "$bench_extra" = "broken" ]; then
+          echo "${size},${LOCK_COUNT},${threads},${bench_name},${avg}" >> "${RESULTS}"
+        else
+          echo "${size},${LOCK_COUNT},${threads},${bench_name}_fixed_${bench_extra}_batch_${bench_batch_size},${avg}" >> "${RESULTS}"
+        fi
       else
         echo "${size},${LOCK_COUNT},${threads},${bench_name}_batch_${bench_batch_size},${avg}" >> "${RESULTS}"
       fi
