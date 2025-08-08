@@ -47,8 +47,8 @@ X_COLUMN_THREADS='threads'
 X_LBL_THREADS='Threads'
 Y_COLUMN='throughput'
 Y_LBL='Mop/s'
-LABELS = {"pessimistic": "pessimistic_batch_32", "pessimistic_b1": "pessimistic", "broken": "broken", "rc": "rc_batch_32", "rcopt": "rc_2QP_batch_16", "farm_broken": "farm_broken", "farm_fixed": "farm_fixed", "farm_fixed_batch_32": "farm_fixed_batch_32", "farm_fixed_memcpy": "farm_fixed_memcpy", "farm_fixed_memcpy_batch_32": "farm_fixed_memcpy_batch_32", "broken_batch_32": "broken_batch_32"}
-COLORS = {"pessimistic": "#984ea3", "pessimistic_b1": "#377eb8", "broken": "#e41a1c", "rc": "#ff7f00", "rcopt": "#4daf4a", "farm_broken": "#a65628", "farm_fixed": "#f781bf", "farm_fixed_batch_32": "#6a3d9a", "farm_fixed_memcpy": "#fdbf6f", "farm_fixed_memcpy_batch_32": "#cab2d6", "broken_batch_32": "#a6cee3"}
+LABELS = {"pessimistic_batch_32": "pessimistic_batch_32", "pessimistic_batch_1": "pessimistic", "broken_batch_1": "broken", "rc_batch_32": "rc_batch_32", "rcopt_batch_32": "rc_2QP_batch_32", "farm_broken": "farm_broken", "farm_fixed_nomemcpy_batch_1": "farm_fixed", "farm_fixed_nomemcpy_batch_32": "farm_fixed_batch_32", "farm_fixed_memcpy_batch_1": "farm_fixed_memcpy", "farm_fixed_memcpy_batch_32": "farm_fixed_memcpy_batch_32", "broken_batch_32": "broken_batch_32"}
+COLORS = {"pessimistic_batch_32": "#984ea3", "pessimistic_batch_1": "#377eb8", "broken_batch_1": "#e41a1c", "rc_batch_32": "#ff7f00", "rcopt_batch_32": "#4daf4a", "farm_broken": "#a65628", "farm_fixed_nomemcpy_batch_1": "#f781bf", "farm_fixed_nomemcpy_batch_32": "#6a3d9a", "farm_fixed_memcpy_batch_1": "#fdbf6f", "farm_fixed_memcpy_batch_32": "#cab2d6", "broken_batch_32": "#a6cee3"}
 
 def plot_sizes_vs_tput(df, machine, threads, out_dir):
     file_paths = []
