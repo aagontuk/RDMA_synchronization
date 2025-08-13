@@ -22,10 +22,10 @@ PLOT_ASPECT_RATIO = 16/6
 
 # PLOT_WIDTH = LATEX_TEMPLATE_COLUMNWIDTH
 # PLOT_HEIGHT = PLOT_WIDTH/PLOT_ASPECT_RATIO
-# PLOT_WIDTH = 3.38 # paper
-PLOT_WIDTH = 6
-# PLOT_HEIGHT = 3 # paper
-PLOT_HEIGHT = 6
+PLOT_WIDTH = 3.38 # paper
+# PLOT_WIDTH = 6
+PLOT_HEIGHT = 3 # paper
+# PLOT_HEIGHT = 6
 
 SMALL_SIZE = 9
 MEDIUM_SIZE = 10
@@ -42,13 +42,16 @@ plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
 plt.rc('figure', titlesize=BIGGER_SIZE)
 
 X_COLUMN_SIZES='size'
-X_LBL_SIZES='Sizes'
+X_LBL_SIZES='Object size (B)'
 X_COLUMN_THREADS='threads'
-X_LBL_THREADS='Threads'
+X_LBL_THREADS='Number of threads'
 Y_COLUMN='throughput'
-Y_LBL='Mop/s'
-LABELS = {"pessimistic_batch_32": "pessimistic_batch_32", "pessimistic_batch_1": "pessimistic", "broken_batch_1": "broken", "rc_batch_32": "rc_batch_32", "rcopt_batch_32": "rc_2QP_batch_32", "farm": "farm_broken", "farm_fixed_nomemcpy_batch_1": "farm_fixed", "farm_fixed_nomemcpy_batch_32": "farm_fixed_batch_32", "farm_fixed_memcpy_batch_1": "farm_fixed_memcpy", "farm_fixed_memcpy_batch_32": "farm_fixed_memcpy_batch_32", "broken_batch_32": "broken_batch_32"}
-COLORS = {"pessimistic_batch_32": "#984ea3", "pessimistic_batch_1": "#377eb8", "broken_batch_1": "#e41a1c", "rc_batch_32": "#ff7f00", "rcopt_batch_32": "#4daf4a", "farm": "#a65628", "farm_fixed_nomemcpy_batch_1": "#f781bf", "farm_fixed_nomemcpy_batch_32": "#6a3d9a", "farm_fixed_memcpy_batch_1": "#fdbf6f", "farm_fixed_memcpy_batch_32": "#cab2d6", "broken_batch_32": "#a6cee3"}
+Y_LBL='Throughput (M GET/s)'
+
+# LABELS = {"pessimistic_batch_32": "pessimistic_batch_32", "pessimistic_batch_1": "pessimistic", "broken_batch_1": "broken", "rc_batch_32": "rc_batch_32", "rcopt_batch_32": "rc_2QP_batch_32", "farm": "farm_broken", "farm_fixed_nomemcpy_batch_1": "farm_fixed", "farm_fixed_nomemcpy_batch_32": "farm_fixed_batch_32", "farm_fixed_memcpy_batch_1": "farm_fixed_memcpy", "farm_fixed_memcpy_batch_32": "farm_fixed_memcpy_batch_32", "broken_batch_32": "broken_batch_32"}
+LABELS = {"pessimistic_batch_32": "Pessimistic", "farm_fixed_nomemcpy_batch_32": "Ordered", "farm_fixed_memcpy_batch_32": "FaRM", "broken_batch_32": "Cell"}
+# COLORS = {"pessimistic_batch_32": "#984ea3", "pessimistic_batch_1": "#377eb8", "broken_batch_1": "#e41a1c", "rc_batch_32": "#ff7f00", "rcopt_batch_32": "#4daf4a", "farm": "#a65628", "farm_fixed_nomemcpy_batch_1": "#f781bf", "farm_fixed_nomemcpy_batch_32": "#6a3d9a", "farm_fixed_memcpy_batch_1": "#fdbf6f", "farm_fixed_memcpy_batch_32": "#cab2d6", "broken_batch_32": "#a6cee3"}
+COLORS = {"pessimistic_batch_32": "#e41a1c", "farm_fixed_nomemcpy_batch_32": "#377eb8", "farm_fixed_memcpy_batch_32": "#4daf4a", "broken_batch_32": "#984ea3"}
 
 def plot_sizes_vs_tput(df, machine, threads, out_dir):
     file_paths = []
@@ -58,7 +61,8 @@ def plot_sizes_vs_tput(df, machine, threads, out_dir):
     fig, ax = plt.subplots(figsize=(PLOT_WIDTH, PLOT_HEIGHT))
 
     # Find all the unique names from the 'bench' columns
-    bench_names = df['bench'].unique()
+    # bench_names = df['bench'].unique()
+    bench_names = list(LABELS.keys())
     sizes = df['size'].unique()
     bench_names.sort()
 
@@ -70,7 +74,7 @@ def plot_sizes_vs_tput(df, machine, threads, out_dir):
 
     plt.xlabel(X_LBL_SIZES)
     plt.ylabel(Y_LBL)
-    plt.title('Sizes vs Throughput for {} with {} threads'.format(machine, threads))
+    # plt.title('Sizes vs Throughput for {} with {} threads'.format(machine, threads))
 
 
     ax.set_xscale('log', base=2)
@@ -82,7 +86,7 @@ def plot_sizes_vs_tput(df, machine, threads, out_dir):
     ax.set_ylim(bottom=0, top=y_lim)
     ax.set_xlim(left=64)
 
-    plt.legend(loc='lower center', bbox_to_anchor=(0.5, 1.06), ncol=3)
+    plt.legend(loc='lower center', bbox_to_anchor=(0.5, 1.06), ncol=len(LABELS.keys())/2)
     fig = plt.gcf()
     fig.tight_layout()
     for file in file_paths:
@@ -96,7 +100,8 @@ def plot_threads_vs_tput(df, machine, size, out_dir):
     fig, ax = plt.subplots(figsize=(PLOT_WIDTH, PLOT_HEIGHT))
 
     # Find all the unique names from the 'bench' columns
-    bench_names = df['bench'].unique()
+    # bench_names = df['bench'].unique()
+    bench_names = list(LABELS.keys())
     threads = df['threads'].unique()
     bench_names.sort()
 
@@ -108,7 +113,7 @@ def plot_threads_vs_tput(df, machine, size, out_dir):
 
     plt.xlabel(X_LBL_THREADS)
     plt.ylabel(Y_LBL)
-    plt.title('Threads vs Throughput for {} with {} size'.format(machine, size))
+    # plt.title('Threads vs Throughput for {} with {} size'.format(machine, size))
 
 
     ax.set_xscale('log', base=2)
@@ -120,7 +125,7 @@ def plot_threads_vs_tput(df, machine, size, out_dir):
     ax.set_ylim(bottom=0, top=y_lim)
     ax.set_xlim(left=threads.min())
 
-    plt.legend(loc='lower center', bbox_to_anchor=(0.5, 1.06), ncol=3)
+    plt.legend(loc='lower center', bbox_to_anchor=(0.5, 1.06), ncol=len(LABELS.keys())/2)
     fig = plt.gcf()
     fig.tight_layout()
     for file in file_paths:
