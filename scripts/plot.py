@@ -53,6 +53,8 @@ LABELS = {"pessimistic_batch_32": "Pessimistic", "farm_fixed_nomemcpy_batch_32":
 # COLORS = {"pessimistic_batch_32": "#984ea3", "pessimistic_batch_1": "#377eb8", "broken_batch_1": "#e41a1c", "rc_batch_32": "#ff7f00", "rcopt_batch_32": "#4daf4a", "farm": "#a65628", "farm_fixed_nomemcpy_batch_1": "#f781bf", "farm_fixed_nomemcpy_batch_32": "#6a3d9a", "farm_fixed_memcpy_batch_1": "#fdbf6f", "farm_fixed_memcpy_batch_32": "#cab2d6", "broken_batch_32": "#a6cee3"}
 COLORS = {"pessimistic_batch_32": "#e41a1c", "farm_fixed_nomemcpy_batch_32": "#377eb8", "farm_fixed_memcpy_batch_32": "#4daf4a", "broken_batch_32": "#984ea3"}
 
+MARKERS = {"pessimistic_batch_32": "x", "farm_fixed_nomemcpy_batch_32": "*", "farm_fixed_memcpy_batch_32": "p", "broken_batch_32": "o"}
+
 def plot_sizes_vs_tput(df, machine, threads, out_dir):
     file_paths = []
     file_paths.append(os.path.join(out_dir, "sizes_vs_tput_m{}_t{}.pdf".format(machine, threads)))
@@ -69,7 +71,7 @@ def plot_sizes_vs_tput(df, machine, threads, out_dir):
     y_max = 0
     for name in bench_names:
         df_filtered = df[(df['bench'] == name) & (df['threads'] == threads)]
-        df_filtered.plot(kind='line', ax=ax, x=X_COLUMN_SIZES, y=Y_COLUMN, marker='o', color=COLORS[name], label= LABELS[name])
+        df_filtered.plot(kind='line', ax=ax, x=X_COLUMN_SIZES, y=Y_COLUMN, marker=MARKERS[name], color=COLORS[name], label= LABELS[name])
         y_max = max(y_max, df_filtered[Y_COLUMN].max())
 
     plt.xlabel(X_LBL_SIZES)
@@ -108,7 +110,7 @@ def plot_threads_vs_tput(df, machine, size, out_dir):
     y_max = 0
     for name in bench_names:
         df_filtered = df[(df['bench'] == name) & (df['size'] == size)]
-        df_filtered.plot(kind='line', ax=ax, x=X_COLUMN_THREADS, y=Y_COLUMN, marker='o', color=COLORS[name], label= LABELS[name])
+        df_filtered.plot(kind='line', ax=ax, x=X_COLUMN_THREADS, y=Y_COLUMN, marker=MARKERS[name], color=COLORS[name], label= LABELS[name])
         y_max = max(y_max, df_filtered[Y_COLUMN].max())
 
     plt.xlabel(X_LBL_THREADS)
