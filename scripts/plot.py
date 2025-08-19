@@ -42,7 +42,7 @@ plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
 plt.rc('figure', titlesize=BIGGER_SIZE)
 
 X_COLUMN_SIZES='size'
-X_LBL_SIZES='Object size (B)'
+X_LBL_SIZES='Object Size (B)'
 X_COLUMN_THREADS='threads'
 X_LBL_THREADS='Number of threads'
 Y_COLUMN='throughput'
