@@ -35,7 +35,7 @@ BIGGER_SIZE = 12
 # mpl.rc('font', **font)
 plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
 plt.rc('axes', titlesize=SMALL_SIZE)     # fontsize of the axes title
-plt.rc('axes', labelsize=MEDIUM_SIZE)    # fontsize of the x and y labels
+plt.rc('axes', labelsize=SMALL_SIZE)    # fontsize of the x and y labels
 plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
 plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
 plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
@@ -71,11 +71,11 @@ def plot_sizes_vs_tput(df, machine, threads, out_dir):
     y_max = 0
     for name in bench_names:
         df_filtered = df[(df['bench'] == name) & (df['threads'] == threads)]
-        df_filtered.plot(kind='line', ax=ax, x=X_COLUMN_SIZES, y=Y_COLUMN, marker=MARKERS[name], color=COLORS[name], label= LABELS[name], fontsize=MEDIUM_SIZE)
+        df_filtered.plot(kind='line', ax=ax, x=X_COLUMN_SIZES, y=Y_COLUMN, marker=MARKERS[name], color=COLORS[name], label= LABELS[name])
         y_max = max(y_max, df_filtered[Y_COLUMN].max())
 
-    plt.xlabel(X_LBL_SIZES, fontsize=MEDIUM_SIZE)
-    plt.ylabel(Y_LBL, fontsize=MEDIUM_SIZE)
+    plt.xlabel(X_LBL_SIZES)
+    plt.ylabel(Y_LBL)
     # plt.title('Sizes vs Throughput for {} with {} threads'.format(machine, threads))
 
 
