@@ -71,11 +71,11 @@ def plot_sizes_vs_tput(df, machine, threads, out_dir):
     y_max = 0
     for name in bench_names:
         df_filtered = df[(df['bench'] == name) & (df['threads'] == threads)]
-        df_filtered.plot(kind='line', ax=ax, x=X_COLUMN_SIZES, y=Y_COLUMN, marker=MARKERS[name], color=COLORS[name], label= LABELS[name])
+        df_filtered.plot(kind='line', ax=ax, x=X_COLUMN_SIZES, y=Y_COLUMN, marker=MARKERS[name], color=COLORS[name], label= LABELS[name], fontsize=MEDIUM_SIZE)
         y_max = max(y_max, df_filtered[Y_COLUMN].max())
 
-    plt.xlabel(X_LBL_SIZES)
-    plt.ylabel(Y_LBL)
+    plt.xlabel(X_LBL_SIZES, fontsize=MEDIUM_SIZE)
+    plt.ylabel(Y_LBL, fontsize=MEDIUM_SIZE)
     # plt.title('Sizes vs Throughput for {} with {} threads'.format(machine, threads))
 
 
@@ -88,7 +88,7 @@ def plot_sizes_vs_tput(df, machine, threads, out_dir):
     ax.set_ylim(bottom=0, top=y_lim)
     ax.set_xlim(left=64)
 
-    plt.legend(loc='lower center', bbox_to_anchor=(0.5, 1.06), ncol=len(LABELS.keys())/2)
+    plt.legend(loc='lower center', bbox_to_anchor=(0.5, 0.98), ncol=len(LABELS.keys())/2)
     fig = plt.gcf()
     fig.tight_layout()
     for file in file_paths:
