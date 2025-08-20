@@ -24,7 +24,7 @@ PLOT_ASPECT_RATIO = 16/6
 # PLOT_HEIGHT = PLOT_WIDTH/PLOT_ASPECT_RATIO
 PLOT_WIDTH = 3.38 # paper
 # PLOT_WIDTH = 6
-PLOT_HEIGHT = 3 # paper
+PLOT_HEIGHT = 2.5 # paper
 # PLOT_HEIGHT = 6
 
 SMALL_SIZE = 9
@@ -84,6 +84,8 @@ def plot_sizes_vs_tput(df, machine, threads, out_dir):
     plt.xticks(ticks=sizes, labels=sizes)
 
     y_lim = y_max * 1.1
+    # round
+    y_lim = ceil(y_lim / 10) * 10
 
     ax.set_ylim(bottom=0, top=y_lim)
     ax.set_xlim(left=64)
