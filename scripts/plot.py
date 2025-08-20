@@ -49,7 +49,7 @@ Y_COLUMN='throughput'
 Y_LBL='Throughput (M GET/s)'
 
 # LABELS = {"pessimistic_batch_32": "pessimistic_batch_32", "pessimistic_batch_1": "pessimistic", "broken_batch_1": "broken", "rc_batch_32": "rc_batch_32", "rcopt_batch_32": "rc_2QP_batch_32", "farm": "farm_broken", "farm_fixed_nomemcpy_batch_1": "farm_fixed", "farm_fixed_nomemcpy_batch_32": "farm_fixed_batch_32", "farm_fixed_memcpy_batch_1": "farm_fixed_memcpy", "farm_fixed_memcpy_batch_32": "farm_fixed_memcpy_batch_32", "broken_batch_32": "broken_batch_32"}
-LABELS = {"pessimistic_batch_32": "Pessimistic", "farm_fixed_nomemcpy_batch_32": "Ordered", "farm_fixed_memcpy_batch_32": "FaRM", "broken_batch_32": "Cell"}
+LABELS = {"pessimistic_batch_32": "Pessimistic", "farm_fixed_nomemcpy_batch_32": "Single Read", "farm_fixed_memcpy_batch_32": "FaRM", "broken_batch_32": "Cell"}
 # COLORS = {"pessimistic_batch_32": "#984ea3", "pessimistic_batch_1": "#377eb8", "broken_batch_1": "#e41a1c", "rc_batch_32": "#ff7f00", "rcopt_batch_32": "#4daf4a", "farm": "#a65628", "farm_fixed_nomemcpy_batch_1": "#f781bf", "farm_fixed_nomemcpy_batch_32": "#6a3d9a", "farm_fixed_memcpy_batch_1": "#fdbf6f", "farm_fixed_memcpy_batch_32": "#cab2d6", "broken_batch_32": "#a6cee3"}
 COLORS = {"pessimistic_batch_32": "#e41a1c", "farm_fixed_nomemcpy_batch_32": "#377eb8", "farm_fixed_memcpy_batch_32": "#4daf4a", "broken_batch_32": "#984ea3"}
 
