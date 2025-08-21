@@ -81,7 +81,8 @@ def plot_sizes_vs_tput(df, machine, threads, out_dir):
 
     ax.set_xscale('log', base=2)
     # plt.xticks(rotation=90)
-    plt.xticks(ticks=sizes, labels=sizes)
+    plt.xticks(ticks=[64, 128, 256, 512, 1024, 2048, 4096, 8192], labels=['64', '128', '256', '512', '1K', '2K', '4K', '8K'])
+    # plt.xticks(ticks=sizes, labels=sizes)
 
     y_lim = y_max * 1.1
     # round
