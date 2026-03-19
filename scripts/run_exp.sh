@@ -16,7 +16,7 @@ RUN_TIME=20
 LOCK_COUNT=2000
 
 LOG_FILE="${SCRIPT_DIR}/../client_stats"
-RESULTS="${SCRIPT_DIR}/results/set2/results_sm110p_set2.csv"
+RESULTS="${SCRIPT_DIR}/results/rdma_kvs_results.csv"
 
 benchmarks=("pessimistic:1" "pessimistic:32" "broken:1" "broken:32" "rc:32" "rcopt:32" "farm:1:nomemcpy" "farm:32:nomemcpy" "farm:1:memcpy" "farm:32:memcpy")
 # For FaRM broken benchmark
@@ -95,3 +95,6 @@ for size in ${sizes[@]}; do
     done
   done
 done
+
+# Generate sizes vs throughput plot
+python3 "${SCRIPT_DIR}/plot.py" "${RESULTS}" --output_dir "${SCRIPT_DIR}/results" --type sizes --threads ${PLOT_THREADS:-16}
