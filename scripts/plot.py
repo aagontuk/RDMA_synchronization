@@ -57,8 +57,8 @@ MARKERS = {"pessimistic_batch_32": "x", "farm_fixed_nomemcpy_batch_32": "*", "fa
 
 def plot_sizes_vs_tput(df, machine, threads, out_dir):
     file_paths = []
-    file_paths.append(os.path.join(out_dir, "sizes_vs_tput_m{}_t{}.pdf".format(machine, threads)))
-    file_paths.append(os.path.join(out_dir, "sizes_vs_tput_m{}_t{}.png".format(machine, threads)))
+    file_paths.append(os.path.join(out_dir, "rdma_kvs.pdf"))
+    file_paths.append(os.path.join(out_dir, "rdma_kvs.png"))
 
     fig, ax = plt.subplots(figsize=(PLOT_WIDTH, PLOT_HEIGHT))
 
