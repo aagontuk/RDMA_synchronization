@@ -6,9 +6,10 @@ SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 # Benchmark binary path
 BIN="${SCRIPT_DIR}/../build/frontend/optmistic_benchmark"
 
-# Node IPs (can be overridden via environment variables)
+# Node IPs and user (can be overridden via environment variables)
 SERVER_IP=${SERVER_IP:-10.10.1.1}
 CLIENT_IP=${CLIENT_IP:-10.10.1.2}
+USER=${USER:-$(whoami)}
 
 # Bench configurations
 NUM_SOCKETS=1
@@ -58,9 +59,9 @@ for size in ${sizes[@]}; do
         # Run client over ssh
         # FaRM broken
         if [ "$bench_extra" == "broken" ]; then
-          ssh node1 "${BIN} -ownIp=${CLIENT_IP} -run_for_seconds=$RUN_TIME -readratios 100 -${bench_name} -block_size $size -worker $threads -all_worker $threads -sockets $NUM_SOCKETS" -csv -csvFile ${LOG_FILE}.csv -lock_count $LOCK_COUNT
+          ssh -o StrictHostKeyChecking=no ${USER}@${CLIENT_IP} "${BIN} -ownIp=${CLIENT_IP} -run_for_seconds=$RUN_TIME -readratios 100 -${bench_name} -block_size $size -worker $threads -all_worker $threads -sockets $NUM_SOCKETS" -csv -csvFile ${LOG_FILE}.csv -lock_count $LOCK_COUNT
         else
-          ssh node1 "${BIN} -ownIp=${CLIENT_IP} -run_for_seconds=$RUN_TIME -readratios 100 -${bench_name} -block_size $size -worker $threads -all_worker $threads -sockets $NUM_SOCKETS" -csv -csvFile ${LOG_FILE}.csv -lock_count $LOCK_COUNT -batch_size $bench_batch_size -${bench_extra}
+          ssh -o StrictHostKeyChecking=no ${USER}@${CLIENT_IP} "${BIN} -ownIp=${CLIENT_IP} -run_for_seconds=$RUN_TIME -readratios 100 -${bench_name} -block_size $size -worker $threads -all_worker $threads -sockets $NUM_SOCKETS" -csv -csvFile ${LOG_FILE}.csv -lock_count $LOCK_COUNT -batch_size $bench_batch_size -${bench_extra}
         fi
         
         sleep 1
