@@ -50,7 +50,7 @@ function system_setup() {
 function build() {
   # Install necessary packages
   sudo apt update
-  sudo apt install libnuma-dev libaio-dev
+  sudo apt -y install libnuma-dev libaio-dev
 
   cd "${SCRIPT_DIR}/.."
   mkdir -p build

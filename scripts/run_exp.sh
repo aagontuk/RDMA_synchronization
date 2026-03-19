@@ -24,7 +24,7 @@ benchmarks=("pessimistic:1" "pessimistic:32" "broken:1" "broken:32" "rc:32" "rco
 # First checkout to main and rebuild then Run this separately
 # benchmarks=("farm:1:broken")
 sizes=(64 128 256 512 1024 2048 4096 8192)
-thread_configs=(1 2 4 8 16)
+thread_configs=(16)
 
 echo "size,num_locks,threads,bench,throughput" > "${RESULTS}"
 
