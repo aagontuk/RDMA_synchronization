@@ -6,6 +6,10 @@ SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 # Benchmark binary path
 BIN="${SCRIPT_DIR}/../build/frontend/optmistic_benchmark"
 
+# Node IPs (can be overridden via environment variables)
+SERVER_IP=${SERVER_IP:-10.10.1.1}
+CLIENT_IP=${CLIENT_IP:-10.10.1.2}
+
 # Bench configurations
 NUM_SOCKETS=1
 RUN_TIME=20
@@ -41,10 +45,10 @@ for size in ${sizes[@]}; do
       while ${retry}; do
         # Run server
         if [ "$bench_name" == "rcopt" ]; then
-          ${BIN} -ownIp=10.10.1.1 -storage_node -dramGB=10 -all_worker $threads -worker $threads -rcopt &
+          ${BIN} -ownIp=${SERVER_IP} -storage_node -dramGB=10 -all_worker $threads -worker $threads -rcopt &
           s_pid=$!
-        else 
-          ${BIN} -ownIp=10.10.1.1 -storage_node -dramGB=10 -all_worker $threads -worker $threads &
+        else
+          ${BIN} -ownIp=${SERVER_IP} -storage_node -dramGB=10 -all_worker $threads -worker $threads &
           s_pid=$!
         fi
 
@@ -54,9 +58,9 @@ for size in ${sizes[@]}; do
         # Run client over ssh
         # FaRM broken
         if [ "$bench_extra" == "broken" ]; then
-          ssh node1 "${BIN} -ownIp=10.10.1.2 -run_for_seconds=$RUN_TIME -readratios 100 -${bench_name} -block_size $size -worker $threads -all_worker $threads -sockets $NUM_SOCKETS" -csv -csvFile ${LOG_FILE}.csv -lock_count $LOCK_COUNT
+          ssh node1 "${BIN} -ownIp=${CLIENT_IP} -run_for_seconds=$RUN_TIME -readratios 100 -${bench_name} -block_size $size -worker $threads -all_worker $threads -sockets $NUM_SOCKETS" -csv -csvFile ${LOG_FILE}.csv -lock_count $LOCK_COUNT
         else
-          ssh node1 "${BIN} -ownIp=10.10.1.2 -run_for_seconds=$RUN_TIME -readratios 100 -${bench_name} -block_size $size -worker $threads -all_worker $threads -sockets $NUM_SOCKETS" -csv -csvFile ${LOG_FILE}.csv -lock_count $LOCK_COUNT -batch_size $bench_batch_size -${bench_extra}
+          ssh node1 "${BIN} -ownIp=${CLIENT_IP} -run_for_seconds=$RUN_TIME -readratios 100 -${bench_name} -block_size $size -worker $threads -all_worker $threads -sockets $NUM_SOCKETS" -csv -csvFile ${LOG_FILE}.csv -lock_count $LOCK_COUNT -batch_size $bench_batch_size -${bench_extra}
         fi
         
         sleep 1
