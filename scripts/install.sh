@@ -8,6 +8,8 @@ N_HUGE_PAGE=10240
 
 n_huge=$(cat /proc/meminfo | grep -i HugePages_Total | awk '{print $2}')
 s_huge=$(cat /proc/meminfo | grep -i Hugepagesize | awk '{print $2,$3}')
+  
+SCRIPT_DIR=$(dirname "$(realpath "$0")")
 
 # Setup hugepages
 function setup_hugepages() {
@@ -50,7 +52,8 @@ function build() {
   sudo apt update
   sudo apt install libnuma-dev libaio-dev
 
-  mkdir build
+  cd "${SCRIPT_DIR}/.."
+  mkdir -p build
   cd build
   cmake ..
   make -j$(nproc)
