@@ -13,6 +13,7 @@
 // -------------------------------------------------------------------------------------
 #include <gflags/gflags.h>
 // -------------------------------------------------------------------------------------
+#include <algorithm>
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -26,6 +27,7 @@ DEFINE_bool(write_combining, false, "");
 DEFINE_bool(order_release, false, "");
 DEFINE_uint64(padding, 8, "");
 DEFINE_uint64(sleep, 0, "sleep in microseconds ");
+DEFINE_uint64(tuple_size, 256, "tuple size in bytes; spans multiple cl to get the correctness.");
 
 static constexpr uint64_t EXCLUSIVE_LOCKED = 0x1000000000000000;
 static constexpr uint64_t EXCLUSIVE_UNLOCK_TO_BE_ADDED = 0xFFFFFFFFFFFFFFFF - EXCLUSIVE_LOCKED + 1;
@@ -33,13 +35,13 @@ static constexpr uint64_t UNLOCKED = 0;
 static constexpr uint64_t MASKED_SHARED_LOCKS = 0x1000000000000000;
 static constexpr uint64_t SHARED_UNLOCK_TO_BE_ADDED = 0xFFFFFFFFFFFFFFFF;
 
-static constexpr uint64_t TUPLE_SIZE = 256;  // spans multiple cl to get the correctness.
-
 int main(int argc, char* argv[]) {
    gflags::SetUsageMessage("Storage-DB Frontend");
    gflags::ParseCommandLineFlags(&argc, &argv, true);
    // -------------------------------------------------------------------------------------
    using namespace nam;
+
+   const uint64_t TUPLE_SIZE = FLAGS_tuple_size;
 
    if (FLAGS_storage_node) {
       ensure(((FLAGS_lock_count * TUPLE_SIZE) + (FLAGS_lock_count * FLAGS_padding)) < (FLAGS_dramGB * 1024 * 1024 * 1024));
@@ -108,7 +110,7 @@ int main(int argc, char* argv[]) {
                   auto& cm = compute.getCM();
                   auto* rctx = threads::Worker::my().cctxs[0].rctx;
                   auto desc = threads::Worker::my().catalog[0];
-                  auto* buffer = static_cast<uint64_t*>(cm.getGlobalBuffer().allocate(1024, 64));
+                  auto* buffer = static_cast<uint64_t*>(cm.getGlobalBuffer().allocate(std::max<uint64_t>(TUPLE_SIZE, 1024), 64));
                   uint64_t* barrier_buffer = static_cast<uint64_t*>(cm.getGlobalBuffer().allocate(64, 64));
                   auto addr = desc.start + 64;
                   uint64_t* old = reinterpret_cast<uint64_t*>(buffer);

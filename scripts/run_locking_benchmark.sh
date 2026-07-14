@@ -2,8 +2,8 @@
 # -------------------------------------------------------------------------------------
 # Runs locking_benchmark with 1 storage node (this machine) and up to 4 client nodes
 # (node-1..node-4), then records aggregate client throughput per (read %, zipf skew,
-# padding, lock count) workload phase into a CSV file:
-#   total_client_threads,read_pct,zipf,padding,lock_count,aggregate_throughput_tx_per_sec
+# padding, lock count, tuple size) workload phase into a CSV file:
+#   total_client_threads,read_pct,zipf,padding,lock_count,tuple_size,aggregate_throughput_tx_per_sec
 #
 # The client binary is expected to sweep read ratios {100, 95, 50, 0} and zipf skew
 # {0, 0.99, 1, 1.5, 2, 2.5} internally in a single run (see frontend/locking_benchmark.cpp).
@@ -14,19 +14,22 @@
 #
 # -padding must match between the storage node and every client -- the tuple byte
 # offset (t_i * TUPLE_SIZE + t_i * padding) is computed the same way on both sides, so
-# a mismatch would corrupt the address layout.
+# a mismatch would corrupt the address layout. -tuple_size must match for the same
+# reason.
 #
 # Results/raw directories are inferred from wherever OUT_CSV points: raw per-node logs
-# and csvs are written to <dirname of OUT_CSV>/raw/padding_<N>/.
+# and csvs are written to <dirname of OUT_CSV>/raw/padding_<N>_tuple_<M>/.
 #
 # Usage:
-#   scripts/run_locking_benchmark.sh [--out-csv=PATH | -o PATH]
+#   scripts/run_locking_benchmark.sh [--out-csv=PATH | -o PATH] [--tuple-size=BYTES | -t BYTES]
 #
 # Overridable via environment variables:
 #   SERVER_IP, CLIENT_NODES (space separated "host:ip" pairs), TOTAL_THREADS,
-#   LOCK_COUNT, DRAM_GB, SOCKETS, PADDING_VALUES (space separated list), OUT_CSV
+#   LOCK_COUNT, DRAM_GB, SOCKETS, PADDING_VALUES (space separated list), OUT_CSV,
+#   TUPLE_SIZE
 #
 # --out-csv/-o (if given) takes precedence over the OUT_CSV environment variable.
+# --tuple-size/-t (if given) takes precedence over the TUPLE_SIZE environment variable.
 # -------------------------------------------------------------------------------------
 set -euo pipefail
 
@@ -46,10 +49,12 @@ SOCKETS=${SOCKETS:-1}
 # "without padding" (0) and "with padding" (8, the binary's own default) by default
 PADDING_VALUES=${PADDING_VALUES:-"0 8"}
 read -r -a PADDING_ARR <<< "${PADDING_VALUES}"
+# tuple size in bytes, matches the binary's own default (see frontend/locking_benchmark.cpp)
+TUPLE_SIZE=${TUPLE_SIZE:-256}
 
 DEFAULT_RESULTS_DIR="${SCRIPT_DIR}/results"
 OUT_CSV=${OUT_CSV:-"${DEFAULT_RESULTS_DIR}/locking_benchmark_aggregate.csv"}
-CSV_HEADER="total_client_threads,read_pct,zipf,padding,lock_count,aggregate_throughput_tx_per_sec"
+CSV_HEADER="total_client_threads,read_pct,zipf,padding,lock_count,tuple_size,aggregate_throughput_tx_per_sec"
 
 # -------------------------------------------------------------------------------------
 # CLI flags
@@ -64,13 +69,21 @@ while [[ $# -gt 0 ]]; do
          OUT_CSV="$2"
          shift 2
          ;;
+      --tuple-size=*)
+         TUPLE_SIZE="${1#*=}"
+         shift
+         ;;
+      --tuple-size|-t)
+         TUPLE_SIZE="$2"
+         shift 2
+         ;;
       -h|--help)
-         echo "Usage: $0 [--out-csv=PATH | -o PATH]"
+         echo "Usage: $0 [--out-csv=PATH | -o PATH] [--tuple-size=BYTES | -t BYTES]"
          exit 0
          ;;
       *)
          echo "Unknown argument: $1" >&2
-         echo "Usage: $0 [--out-csv=PATH | -o PATH]" >&2
+         echo "Usage: $0 [--out-csv=PATH | -o PATH] [--tuple-size=BYTES | -t BYTES]" >&2
          exit 1
          ;;
    esac
@@ -96,31 +109,43 @@ if [[ ! -x "${BIN}" ]]; then
 fi
 
 # -------------------------------------------------------------------------------------
-# If OUT_CSV already exists with an older header (pre-padding-column, or pre-lock_count
-# column), migrate it in place rather than leaving a ragged/inconsistent CSV:
+# If OUT_CSV already exists with an older header (pre-padding-column, pre-lock_count
+# column, or pre-tuple_size column), migrate it in place rather than leaving a
+# ragged/inconsistent CSV:
 #   - rows written before the padding column existed always used the binary's default
 #     padding of 8
 #   - rows written before the lock_count column existed always used this invocation's
 #     LOCK_COUNT (each results file has consistently been used for one dataset scale)
+#   - rows written before the tuple_size column existed always used the binary's
+#     default tuple_size of 256
 # -------------------------------------------------------------------------------------
 HEADER_V1="total_client_threads,read_pct,zipf,aggregate_throughput_tx_per_sec"
 HEADER_V2="total_client_threads,read_pct,zipf,padding,aggregate_throughput_tx_per_sec"
+HEADER_V3="total_client_threads,read_pct,zipf,padding,lock_count,aggregate_throughput_tx_per_sec"
 if [[ -f "${OUT_CSV}" ]]; then
    CURRENT_HEADER="$(head -n 1 "${OUT_CSV}" | tr -d '\r\n')"
    if [[ "${CURRENT_HEADER}" == "${HEADER_V1}" ]]; then
-      echo "Migrating ${OUT_CSV}: backfilling padding=8 and lock_count=${LOCK_COUNT} for historical rows"
+      echo "Migrating ${OUT_CSV}: backfilling padding=8, lock_count=${LOCK_COUNT} and tuple_size=256 for historical rows"
       TMP_MIGRATE=$(mktemp)
       {
          echo "${CSV_HEADER}"
-         tail -n +2 "${OUT_CSV}" | tr -d '\r' | awk -F',' -v lc="${LOCK_COUNT}" 'BEGIN{OFS=","} {print $1,$2,$3,8,lc,$4}'
+         tail -n +2 "${OUT_CSV}" | tr -d '\r' | awk -F',' -v lc="${LOCK_COUNT}" 'BEGIN{OFS=","} {print $1,$2,$3,8,lc,256,$4}'
       } > "${TMP_MIGRATE}"
       mv "${TMP_MIGRATE}" "${OUT_CSV}"
    elif [[ "${CURRENT_HEADER}" == "${HEADER_V2}" ]]; then
-      echo "Migrating ${OUT_CSV}: backfilling lock_count=${LOCK_COUNT} for historical rows"
+      echo "Migrating ${OUT_CSV}: backfilling lock_count=${LOCK_COUNT} and tuple_size=256 for historical rows"
       TMP_MIGRATE=$(mktemp)
       {
          echo "${CSV_HEADER}"
-         tail -n +2 "${OUT_CSV}" | tr -d '\r' | awk -F',' -v lc="${LOCK_COUNT}" 'BEGIN{OFS=","} {print $1,$2,$3,$4,lc,$5}'
+         tail -n +2 "${OUT_CSV}" | tr -d '\r' | awk -F',' -v lc="${LOCK_COUNT}" 'BEGIN{OFS=","} {print $1,$2,$3,$4,lc,256,$5}'
+      } > "${TMP_MIGRATE}"
+      mv "${TMP_MIGRATE}" "${OUT_CSV}"
+   elif [[ "${CURRENT_HEADER}" == "${HEADER_V3}" ]]; then
+      echo "Migrating ${OUT_CSV}: backfilling tuple_size=256 for historical rows"
+      TMP_MIGRATE=$(mktemp)
+      {
+         echo "${CSV_HEADER}"
+         tail -n +2 "${OUT_CSV}" | tr -d '\r' | awk -F',' 'BEGIN{OFS=","} {print $1,$2,$3,$4,$5,256,$6}'
       } > "${TMP_MIGRATE}"
       mv "${TMP_MIGRATE}" "${OUT_CSV}"
    fi
@@ -143,10 +168,10 @@ trap cleanup EXIT INT TERM
 
 for PADDING in "${PADDING_ARR[@]}"; do
    echo "==============================================================================="
-   echo "Running locking_benchmark: ${TOTAL_THREADS} total client threads across ${NUM_NODES} node(s) (${WORKER_PER_NODE} each), padding=${PADDING}"
+   echo "Running locking_benchmark: ${TOTAL_THREADS} total client threads across ${NUM_NODES} node(s) (${WORKER_PER_NODE} each), padding=${PADDING}, tuple_size=${TUPLE_SIZE}"
    echo "==============================================================================="
 
-   RUN_DIR="${RAW_DIR}/padding_${PADDING}"
+   RUN_DIR="${RAW_DIR}/padding_${PADDING}_tuple_${TUPLE_SIZE}"
    mkdir -p "${RUN_DIR}"
 
    # ----------------------------------------------------------------------------------
@@ -163,7 +188,7 @@ for PADDING in "${PADDING_ARR[@]}"; do
    # ----------------------------------------------------------------------------------
    SERVER_LOG="${RUN_DIR}/server.log"
    "${BIN}" -ownIp="${SERVER_IP}" -storage_node -dramGB="${DRAM_GB}" -lock_count="${LOCK_COUNT}" \
-      -padding="${PADDING}" -all_worker="${TOTAL_THREADS}" -worker="${TOTAL_THREADS}" > "${SERVER_LOG}" 2>&1 &
+      -padding="${PADDING}" -tuple_size="${TUPLE_SIZE}" -all_worker="${TOTAL_THREADS}" -worker="${TOTAL_THREADS}" > "${SERVER_LOG}" 2>&1 &
    SERVER_PID=$!
    sleep 3
    if ! kill -0 "${SERVER_PID}" 2>/dev/null; then
@@ -180,13 +205,13 @@ for PADDING in "${PADDING_ARR[@]}"; do
    for node_ip in "${CLIENT_NODE_ARR[@]}"; do
       node="${node_ip%%:*}"
       ip="${node_ip##*:}"
-      remote_csv="/tmp/locking_benchmark_${node}_padding${PADDING}.csv"
+      remote_csv="/tmp/locking_benchmark_${node}_padding${PADDING}_tuple${TUPLE_SIZE}.csv"
       local_csv="${RUN_DIR}/${node}.csv"
       rm -f "${local_csv}"
       ssh -o BatchMode=yes "${node}" \
          "rm -f ${remote_csv}; ${BIN} -ownIp=${ip} -lock_count=${LOCK_COUNT} \
             -all_worker=${TOTAL_THREADS} -worker=${WORKER_PER_NODE} -sockets=${SOCKETS} \
-            -padding=${PADDING} \
+            -padding=${PADDING} -tuple_size=${TUPLE_SIZE} \
             -write_combining -speculative_read -order_release -csv -csvFile=${remote_csv}" \
          > "${RUN_DIR}/${node}.log" 2>&1 &
       CLIENT_PIDS+=("$!")
@@ -226,13 +251,13 @@ for PADDING in "${PADDING_ARR[@]}"; do
    # Aggregate per-node CSVs into aggregate throughput per (read %, zipf) phase
    # -----------------------------------------------------------------------------------
    mkdir -p "${RESULTS_DIR}"
-   python3 - "${OUT_CSV}" "${TOTAL_THREADS}" "${PADDING}" "${LOCK_COUNT}" "${CSV_HEADER}" "${RUN_DIR}"/*.csv <<'PYEOF'
+   python3 - "${OUT_CSV}" "${TOTAL_THREADS}" "${PADDING}" "${LOCK_COUNT}" "${TUPLE_SIZE}" "${CSV_HEADER}" "${RUN_DIR}"/*.csv <<'PYEOF'
 import csv
 import sys
 import os
 
-out_csv, total_threads, padding, lock_count, csv_header = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
-node_csvs = sys.argv[6:]
+out_csv, total_threads, padding, lock_count, tuple_size, csv_header = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6]
+node_csvs = sys.argv[7:]
 
 def col(row, name):
     for k, v in row.items():
@@ -289,8 +314,8 @@ with open(out_csv, 'a', newline='') as f:
         writer.writerow(csv_header.split(','))
     for (ratio, zipf), avgs in phases.items():
         aggregate = sum(avgs)
-        writer.writerow([total_threads, ratio, zipf, padding, lock_count, f"{aggregate:.2f}"])
-        print(f"padding={padding} lock_count={lock_count} threads={total_threads} read%={ratio} zipf={zipf} aggregate_tx_per_sec={aggregate:,.0f}")
+        writer.writerow([total_threads, ratio, zipf, padding, lock_count, tuple_size, f"{aggregate:.2f}"])
+        print(f"padding={padding} lock_count={lock_count} tuple_size={tuple_size} threads={total_threads} read%={ratio} zipf={zipf} aggregate_tx_per_sec={aggregate:,.0f}")
 PYEOF
 
 done
