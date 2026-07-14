@@ -29,8 +29,7 @@ function system_setup() {
   sudo apt install -y linux-tools-common linux-tools-`uname -r` htop
 
   # Install plot packages
-  sudo apt install -y python3-pip
-  pip install matplotlib pandas
+  sudo apt install python3-matplotlib python3-pandas
 
   if [[ "$vendor" == *"GenuineIntel"* ]]; then
     # Set scaling governor to performance

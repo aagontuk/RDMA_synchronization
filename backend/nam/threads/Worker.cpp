@@ -41,7 +41,7 @@ Worker::Worker(uint64_t workerId, std::string name, rdma::CM<rdma::InitMessage>&
       std::cout << "num regions " << num_regions << "\n";
       // for(uint64_t t_i = 0; t_i < num_regions; t_i++){
       // hack only supports one region at the moment 
-         catalog.insert({n_i,{.start = msg.mem_regions[0].offset, .size_bytes = msg.mem_regions[0].size_bytes, .region_id = (int)0}});
+         catalog.insert({(int)n_i,{.start = msg.mem_regions[0].offset, .size_bytes = msg.mem_regions[0].size_bytes, .region_id = (int)0}});
       // }
    }
 

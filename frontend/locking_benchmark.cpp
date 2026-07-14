@@ -82,10 +82,11 @@ int main(int argc, char* argv[]) {
       std::vector<double> zipfs;
       // workloads.push_back(5);
       workloads.push_back(100);
+      workloads.push_back(95);
       workloads.push_back(50);
       workloads.push_back(0);
       // zipfs.insert(zipfs.end(), {0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0});
-      zipfs.insert(zipfs.end(), {0});
+      zipfs.insert(zipfs.end(), {0, 0.99, 1, 1.5, 2, 2.5});
       // -------------------------------------------------------------------------------------
       u64 lock_count = FLAGS_lock_count;
       // -------------------------------------------------------------------------------------
