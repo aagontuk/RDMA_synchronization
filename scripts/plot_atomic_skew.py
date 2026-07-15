@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
 # Script for plotting atomic HCA vs Global throughput across zipf skew
-# Usage: python plot_atomic_skew.py <hca_csv> <glob_csv>
+# Usage: python plot_atomic_skew.py --hca <hca_csv> --glob <glob_csv>
+# Either --hca or --glob may be omitted to plot only the other one.
 
 import sys
 import os
@@ -40,22 +41,26 @@ COLORS = {"hca": "#e41a1c", "hca_pad": "#377eb8", "glob": "#4daf4a", "glob_pad":
 MARKERS = {"hca": "x", "hca_pad": "*", "glob": "p", "glob_pad": "o"}
 SERIES = ["hca", "hca_pad", "glob", "glob_pad"]
 
-def load_data(hca_file, glob_file):
-    df_hca = pd.read_csv(hca_file)
-    df_glob = pd.read_csv(glob_file)
+def load_data(hca_file=None, glob_file=None):
+    frames = {}
 
-    df_hca['throughput_mops'] = df_hca['aggregate_throughput_tx_per_sec'] / 1e6
-    df_glob['throughput_mops'] = df_glob['aggregate_throughput_tx_per_sec'] / 1e6
+    if hca_file:
+        df_hca = pd.read_csv(hca_file)
+        df_hca['throughput_mops'] = df_hca['aggregate_throughput_tx_per_sec'] / 1e6
+        frames["hca"] = df_hca[df_hca['padding'] == 0]
+        frames["hca_pad"] = df_hca[df_hca['padding'] != 0]
 
-    frames = {
-        "hca": df_hca[df_hca['padding'] == 0],
-        "hca_pad": df_hca[df_hca['padding'] != 0],
-        "glob": df_glob[df_glob['padding'] == 0],
-        "glob_pad": df_glob[df_glob['padding'] != 0],
-    }
+    if glob_file:
+        df_glob = pd.read_csv(glob_file)
+        df_glob['throughput_mops'] = df_glob['aggregate_throughput_tx_per_sec'] / 1e6
+        frames["glob"] = df_glob[df_glob['padding'] == 0]
+        frames["glob_pad"] = df_glob[df_glob['padding'] != 0]
+
     return frames
 
 def plot_atomic_skew(frames, out_dir):
+    series = [name for name in SERIES if name in frames]
+
     file_paths = []
     file_paths.append(os.path.join(out_dir, "atomic_skew.pdf"))
     file_paths.append(os.path.join(out_dir, "atomic_skew.png"))
@@ -63,13 +68,13 @@ def plot_atomic_skew(frames, out_dir):
     fig, axes = plt.subplots(2, 2, figsize=(PLOT_WIDTH, PLOT_HEIGHT), sharex=True, sharey=True)
     axes = axes.flatten()
 
-    zipf_values = sorted(frames["hca"][X_COLUMN].unique())
+    zipf_values = sorted(frames[series[0]][X_COLUMN].unique())
     x_ticks = list(range(len(zipf_values)))
     zipf_to_x = {z: i for i, z in enumerate(zipf_values)}
 
     y_max = 0
     for ax, read_pct in zip(axes, WORKLOADS):
-        for name in SERIES:
+        for name in series:
             df_filtered = frames[name][frames[name]['read_pct'] == read_pct].sort_values(X_COLUMN)
             xs = [zipf_to_x[z] for z in df_filtered[X_COLUMN]]
             ax.plot(xs, df_filtered[Y_COLUMN], marker=MARKERS[name], color=COLORS[name], label=LABELS[name])
@@ -88,7 +93,7 @@ def plot_atomic_skew(frames, out_dir):
     fig.text(0.0, 0.5, Y_LBL, va='center', rotation='vertical')
 
     handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc='lower center', bbox_to_anchor=(0.5, 1.0), ncol=len(SERIES))
+    fig.legend(handles, labels, loc='lower center', bbox_to_anchor=(0.5, 1.0), ncol=len(series))
 
     fig.tight_layout()
     for file in file_paths:
@@ -96,15 +101,18 @@ def plot_atomic_skew(frames, out_dir):
 
 def main():
     parser = argparse.ArgumentParser(description='Plot HCA vs Global atomic throughput across zipf skew.')
-    parser.add_argument('hca_file', type=str, help='Path to the HCA atomic results CSV')
-    parser.add_argument('glob_file', type=str, help='Path to the Global atomic results CSV')
-    parser.add_argument('--output_dir', type=str, default='.', help='Directory to save the output plots (default: current directory)')
+    parser.add_argument('--hca', dest='hca_file', type=str, default=None, help='Path to the HCA atomic results CSV')
+    parser.add_argument('--glob', dest='glob_file', type=str, default=None, help='Path to the Global atomic results CSV')
 
     args = parser.parse_args()
 
+    if not args.hca_file and not args.glob_file:
+        parser.error('At least one of --hca or --glob must be provided')
+
     frames = load_data(args.hca_file, args.glob_file)
-    plot_atomic_skew(frames, args.output_dir)
-    print("Saved plots to {}".format(args.output_dir))
+    out_dir = os.path.dirname(os.path.abspath(args.hca_file or args.glob_file))
+    plot_atomic_skew(frames, out_dir)
+    print("Saved plots to {}".format(out_dir))
 
 if __name__ == '__main__':
     main()

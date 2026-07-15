@@ -225,60 +225,66 @@ int main(int argc, char* argv[]) {
                      if (READ_RATIO == 100 || utils::RandomGenerator::getRandU64(0, 100) < READ_RATIO) {
                         auto start = utils::getTimePoint();
                         // read lock
-                        bool locked = false;
-                        if (FLAGS_speculative_read) {
-                           locked = speculative_read_s_lock(lock_addr);
-                        } else
-                           locked = basic_s_lock(lock_addr);
-                        if (!locked) continue;
-                        // verify cl counter
-                        uint64_t prev_version = old[1];
-                        for (uint64_t i = 1; i < TUPLE_SIZE / sizeof(uint64_t); ++i) {
-                           if (prev_version != old[i]) {
-                              std::cout << "prev " << prev_version << " " << old[i] << std::endl;
-                              throw;
+                        for (uint64_t repeatCounter = 0;; repeatCounter++) {
+                           bool locked = false;
+                           if (FLAGS_speculative_read) {
+                              locked = speculative_read_s_lock(lock_addr);
+                           } else
+                              locked = basic_s_lock(lock_addr);
+                           if (!locked) continue;
+                           // verify cl counter
+                           uint64_t prev_version = old[1];
+                           for (uint64_t i = 1; i < TUPLE_SIZE / sizeof(uint64_t); ++i) {
+                              if (prev_version != old[i]) {
+                                 std::cout << "prev " << prev_version << " " << old[i] << std::endl;
+                                 throw;
+                              }
+                              prev_version = old[i];
                            }
-                           prev_version = old[i];
+                           if (FLAGS_order_release)
+                              s_order_release(lock_addr);
+                           else
+                              s_unlock(lock_addr);
+                           auto end = utils::getTimePoint();
+                           threads::Worker::my().counters.incr_by(profiling::WorkerCounters::latency, (end - start));
+                           break;
                         }
-                        if (FLAGS_order_release)
-                           s_order_release(lock_addr);
-                        else
-                           s_unlock(lock_addr);
-                        auto end = utils::getTimePoint();
-                        threads::Worker::my().counters.incr_by(profiling::WorkerCounters::latency, (end - start));
                      } else {
                         auto start = utils::getTimePoint();
                         // write lock
-                        bool locked = false;
-                        if (FLAGS_speculative_read) {
-                           locked = speculative_read_x_lock(lock_addr);
-                           if (FLAGS_sleep > 0) {
-                              for (size_t i = 0; i < FLAGS_sleep; ++i) {
-                                 _mm_pause();
+                        for (uint64_t repeatCounter = 0;; repeatCounter++) {
+                           bool locked = false;
+                           if (FLAGS_speculative_read) {
+                              locked = speculative_read_x_lock(lock_addr);
+                              if (FLAGS_sleep > 0) {
+                                 for (size_t i = 0; i < FLAGS_sleep; ++i) {
+                                    _mm_pause();
+                                 }
                               }
+                           } else
+                              locked = basic_x_lock(lock_addr);
+                           if (!locked) continue;
+                           // increment counter
+                           uint64_t new_version = ++old[1];
+                           for (uint64_t i = 1; i < TUPLE_SIZE / sizeof(uint64_t); ++i) {
+                              old[i] = new_version;
                            }
-                        } else
-                           locked = basic_x_lock(lock_addr);
-                        if (!locked) continue;
-                        // increment counter
-                        uint64_t new_version = ++old[1];
-                        for (uint64_t i = 1; i < TUPLE_SIZE / sizeof(uint64_t); ++i) {
-                           old[i] = new_version;
+                           // write back
+                           if (FLAGS_write_combining) {
+                              if (FLAGS_order_release)
+                                 x_order_release(lock_addr);
+                              else
+                                 write_combining(lock_addr);
+                           } else {
+                              rdma::postWrite(&old[1], *rctx, rdma::completion::signaled, lock_addr + 8, TUPLE_SIZE - 8);
+                              poll_cq();
+                              x_unlock(lock_addr);
+                           }
+                           auto end = utils::getTimePoint();
+                           updates++;
+                           threads::Worker::my().counters.incr_by(profiling::WorkerCounters::latency, (end - start));
+                           break;
                         }
-                        // write back
-                        if (FLAGS_write_combining) {
-                           if (FLAGS_order_release)
-                              x_order_release(lock_addr);
-                           else
-                              write_combining(lock_addr);
-                        } else {
-                           rdma::postWrite(&old[1], *rctx, rdma::completion::signaled, lock_addr + 8, TUPLE_SIZE - 8);
-                           poll_cq();
-                           x_unlock(lock_addr);
-                        }
-                        auto end = utils::getTimePoint();
-                        updates++;
-                        threads::Worker::my().counters.incr_by(profiling::WorkerCounters::latency, (end - start));
                      }
                      threads::Worker::my().counters.incr(profiling::WorkerCounters::tx_p);
                   }
