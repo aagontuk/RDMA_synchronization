@@ -9,6 +9,7 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
 from math import ceil
 import argparse
 
@@ -41,6 +42,11 @@ COLORS = {"hca": "#e41a1c", "hca_pad": "#377eb8", "glob": "#4daf4a", "glob_pad":
 MARKERS = {"hca": "x", "hca_pad": "*", "glob": "p", "glob_pad": "o"}
 SERIES = ["hca", "hca_pad", "glob", "glob_pad"]
 
+# Inset zoom: workloads (read_pct) whose subplot should get a zoomed-in inset
+# around a single zipf value where the shared y-scale hides the differences.
+ZOOM_WORKLOADS = [50, 0]
+ZOOM_ZIPF = 0.99
+
 def load_data(hca_file=None, glob_file=None):
     frames = {}
 
@@ -57,6 +63,37 @@ def load_data(hca_file=None, glob_file=None):
         frames["glob_pad"] = df_glob[df_glob['padding'] != 0]
 
     return frames
+
+def add_zoom_inset(ax, frames, series, read_pct, zipf_to_x):
+    """Draw a zoomed-in inset around ZOOM_ZIPF, since its throughput is
+    dwarfed by the zipf=0 point on the shared y-axis."""
+    x_zoom = zipf_to_x[ZOOM_ZIPF]
+
+    y_vals = []
+    for name in series:
+        df_filtered = frames[name][frames[name]['read_pct'] == read_pct]
+        point = df_filtered[df_filtered[X_COLUMN] == ZOOM_ZIPF]
+        if not point.empty:
+            y_vals.append(point[Y_COLUMN].iloc[0])
+
+    if not y_vals:
+        return
+
+    y_min, y_max = min(y_vals), max(y_vals)
+    y_pad = (y_max - y_min) * 0.4 or y_max * 0.1
+
+    axins = inset_axes(ax, width="45%", height="45%", loc='upper right', borderpad=1.2)
+    for name in series:
+        df_filtered = frames[name][frames[name]['read_pct'] == read_pct].sort_values(X_COLUMN)
+        xs = [zipf_to_x[z] for z in df_filtered[X_COLUMN]]
+        axins.plot(xs, df_filtered[Y_COLUMN], marker=MARKERS[name], color=COLORS[name])
+
+    axins.set_xlim(x_zoom - 0.4, x_zoom + 0.4)
+    axins.set_ylim(y_min - y_pad, y_max + y_pad)
+    axins.set_xticks([x_zoom])
+    axins.set_xticklabels([str(ZOOM_ZIPF)])
+    axins.tick_params(labelsize=6)
+    mark_inset(ax, axins, loc1=2, loc2=3, fc="none", ec="0.5", lw=0.6)
 
 def plot_atomic_skew(frames, out_dir):
     series = [name for name in SERIES if name in frames]
@@ -83,6 +120,9 @@ def plot_atomic_skew(frames, out_dir):
         ax.set_title(WORKLOAD_TITLES[read_pct])
         ax.set_xticks(x_ticks)
         ax.set_xticklabels([str(z) for z in zipf_values])
+
+        if read_pct in ZOOM_WORKLOADS and ZOOM_ZIPF in zipf_to_x:
+            add_zoom_inset(ax, frames, series, read_pct, zipf_to_x)
 
     y_lim = ceil((y_max * 1.1) / 5) * 5
     for ax in axes:
