@@ -34,6 +34,21 @@ find_package(Threads REQUIRED)
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 
 # ---------------------------------------------------------------------------
+# Required system libraries
+# ---------------------------------------------------------------------------
+find_library(LIBAIO_LIBRARY NAMES aio)
+find_path(LIBAIO_INCLUDE_DIR NAMES libaio.h)
+if (NOT LIBAIO_LIBRARY OR NOT LIBAIO_INCLUDE_DIR)
+  message(FATAL_ERROR "libaio-dev not found. Install it with: sudo apt-get install libaio-dev")
+endif()
+
+find_library(LIBNUMA_LIBRARY NAMES numa)
+find_path(LIBNUMA_INCLUDE_DIR NAMES numa.h)
+if (NOT LIBNUMA_LIBRARY OR NOT LIBNUMA_INCLUDE_DIR)
+  message(FATAL_ERROR "libnuma-dev not found. Install it with: sudo apt-get install libnuma-dev")
+endif()
+
+# ---------------------------------------------------------------------------
 # Includes
 # ---------------------------------------------------------------------------
 include("${CMAKE_SOURCE_DIR}/shared-headers/local.cmake")
